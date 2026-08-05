@@ -19,11 +19,15 @@ Survey open tooling for each pipeline stage; publish findings in `docs/`. Output
 - Export in formats stereo training codebases consume
 - Baseline experiment: fine-tune an open stereo network, evaluate on real captures
 
-## Phase 3 — Scan-to-sim
+## Phase 3 — Scan-to-sim (Godot first)
 
-- Mesh prep: decimation/LOD, collision decomposition, terrain/object split
-- Import into chosen simulator(s); real-scale, georeferenced scene composition
-- Target application: drone + manipulator simulation in reconstructed real spaces
+**North-star milestone: a GCP-fixed, ground-truth-aligned scene of a real place, walkable in Godot.**
+
+- Mesh prep: decimation/LOD (gltfpack), collision decomposition (CoACD), terrain/object split
+- Godot import: glTF at real scale, local-ENU origin, `scene.json` georef sidecar; large scenes via 3D Tiles for Godot
+- Visualization layer: fly-through/walkthrough of the scene next to its own accuracy data; VR via Godot's built-in OpenXR (mesh first — splat rendering in VR is a stretch goal)
+- Splat twin: same scene as Gaussian splats in Godot (GDGS plugin) for photoreal desktop viewing
+- Robot training: drone + arm physics in MuJoCo using the same collision geometry; Godot as teleop/observation front-end; evaluate Godot RL Agents for in-engine learning
 
 ## Phase 4 — Automation & integration
 
