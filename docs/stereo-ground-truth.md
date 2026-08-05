@@ -47,7 +47,7 @@ Disparity math: `d = f·B / Z` at the rig's calibrated focal length and baseline
 
 ## 4. Sim-to-real
 
-- **Architectures** (all verified active): **RAFT-Stereo** ([repo](https://github.com/princeton-vl/RAFT-Stereo)) — trained on SceneFlow alone it generalizes zero-shot; loaders expect SceneFlow PFM / KITTI 16-bit PNG / Middlebury+ETH3D PFM. **IGEV / IGEV++** (TPAMI 2025, bfloat16 training, [repo](https://github.com/gangweix/IGEV)). **StereoAnywhere** (CVPR 2025, [repo](https://github.com/bartn8/stereoanywhere)) — fuses Depth Anything V2 monocular priors for textureless/non-Lambertian regions, directly relevant to our failure modes. **FoundationStereo** is the zero-shot baseline to beat; ⚠ license/training-code status unresolved — check before building on it.
+- **Architectures** (all verified active): **RAFT-Stereo** ([repo](https://github.com/princeton-vl/RAFT-Stereo)) — trained on SceneFlow alone it generalizes zero-shot; loaders expect SceneFlow PFM / KITTI 16-bit PNG / Middlebury+ETH3D PFM. **IGEV / IGEV++** (TPAMI 2025, bfloat16 training, [repo](https://github.com/gangweix/IGEV)). **StereoAnywhere** (CVPR 2025, [repo](https://github.com/bartn8/stereoanywhere)) — fuses Depth Anything V2 monocular priors for textureless/non-Lambertian regions, directly relevant to our failure modes. **FoundationStereo** — license now verified: custom NVIDIA **non-commercial, research-only** terms on both code and weights, and **no training code released** (inference/demo only) ([LICENSE](https://github.com/NVlabs/FoundationStereo)). So it serves as an evaluation baseline, not a fine-tune base; RAFT-Stereo/IGEV (permissively licensed) carry the actual training.
 - **Degradation modeling**: physics-grounded sensor simulation beats naive noise injection — verified line of work: [active-stereo sensor sim](https://angli66.github.io/active-sensor-sim/), [simsense](https://github.com/angli66/simsense) (GPU depth-sensor simulator), DREDS (ECCV 2022, [paper](https://arxiv.org/pdf/2208.03792)), RaSim ([paper](https://arxiv.org/pdf/2404.03962)). RealSense D435 noise decomposes into axial + shadow + structural components, material/illumination-dependent.
 - Mixed-dataset fine-tuning for robustness is standard (RVC 2022 winner used 7 datasets, [paper](https://arxiv.org/pdf/2210.12785)).
 - Evaluation: hold out real stereo captures of a scanned scene; metrics EPE + bad-2.0/bad-1.0.
@@ -69,10 +69,10 @@ Position unchanged: renderer first (serves sim too), real-capture GT as the high
 - **librealsense is Apache-2.0**, actively maintained; org migrating IntelRealSense → realsenseai post-spinout (old URLs may rot). **D455: 95 mm baseline, global shutter.** ([repo](https://github.com/IntelRealSense/librealsense))
 - **Luxonis DepthAI SDK is MIT**; OAK 4 platform announced Jan 2026 ([org](https://github.com/luxonis)).
 - **Stereolabs ZED SDK is proprietary** + NVIDIA-GPU-required — out, per project principles ([repo](https://github.com/stereolabs/zed-sdk)).
-- Still unverified ⚠: D435 ~50 mm baseline, OAK-D 75 mm baseline, per-model shutter types, IR-projector-off and Y8 raw modes.
+- **D435: global shutter confirmed** from the official product page ([realsenseai.com](https://realsenseai.com/stereo-depth-cameras/stereo-depth-camera-d435/)). **OAK-D: OV9282 global-shutter mono pair, 7.5 cm baseline, confirmed** from Luxonis docs ([docs.luxonis.com](https://docs.luxonis.com/hardware/products/OAK-D)).
+- Still unverified ⚠ (the old Intel datasheet domains are dead post-spinout): the D435's ~50 mm baseline figure, emitter-off (`RS2_OPTION_EMITTER_ENABLED`) and raw Y8 IR streams as primary-source citations, and which OAK-D *variants* beyond the standard model have global shutter. None of these block anything — both candidate cameras are confirmed global-shutter, which was the load-bearing question.
 
 ## Open questions
 
-- Which rig do we standardize on? (OAK-class global-shutter RGB pair vs RealSense left-IR workarounds.)
-- FoundationStereo license (gates whether it's a baseline only or a fine-tune base).
+- Which rig do we standardize on? (OAK-D's global-shutter pair vs RealSense left-IR workarounds — both confirmed global shutter.)
 - Operating envelope for the first fine-tune: general outdoor vs the drone-arm's close-range oblique regime.
