@@ -38,6 +38,17 @@ Ground control points constrain the reconstruction; held-out checkpoints measure
 
 See [`ROADMAP.md`](ROADMAP.md) for where this is headed.
 
+## Running (Phase 1)
+
+The photogrammetry engine runs as a NodeODM container under [Podman](https://podman.io/) (open-source, daemonless — no Docker Desktop). Two scripts are the whole interface:
+
+```powershell
+.\scripts\odm-up.ps1                                          # start engine → http://localhost:3000
+.\scripts\odm-submit.ps1 -ImagesDir <flight-images> -Name x   # submit a flight (optional -GcpFile gcp_list.txt)
+```
+
+Progress, previews, and downloads (orthophoto, point cloud, textured mesh, quality report) live in the NodeODM web UI at `localhost:3000`. Put flight data under `data/` — it's gitignored.
+
 ## License
 
 MIT
