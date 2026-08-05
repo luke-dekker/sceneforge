@@ -15,7 +15,7 @@ Goal: drop georeferenced reconstructions into open simulators/game engines — c
 - **Gazebo** — current LTS "Jetty" (Sept 2025 → May 2031); Gazebo Classic EOL'd Jan 2025; `gazebo_ros2_control` archived → `gz_ros2_control` ([releases](https://gazebosim.org/docs/latest/releases/)). Textured glTF/FBX import is a documented pain point (common workaround: convert to COLLADA in Blender). Keep only for the PX4 SITL scenario.
 - **PyBullet** — 3.2.7 (Jan 2025) but flagged "inactive," issue tracker closed ⚠ ([pypi](https://pypi.org/project/pybullet/)). Confirmed fading; skip.
 - **Webots** — R2025a, Apache-2.0, alive, good ROS2 integration; not differentiated for our use.
-- **Genesis** — Apache-2.0; "Genesis World 1.0" announced July 30, 2026 with Nyx photorealistic renderer; active repo, now company-backed ([repo](https://github.com/Genesis-Embodied-AI/genesis-world), [blog](https://www.genesis.ai/blog/the-role-of-simulation-in-scalable-robotics-genesis-world-10-and-the-path-forward)). ⚠ Version/date claims in research conflicted and verification never ran — re-evaluate hands-on at Phase 3; highest upside of anything on this list.
+- **Genesis** — Apache-2.0, verified current release **v1.3.1** (July 2026), company-backed and active; **asset import explicitly includes URDF, MJCF, OBJ, GLB, and USD** ([repo](https://github.com/Genesis-Embodied-AI/Genesis)) — so our photogrammetry meshes drop straight in. Highest upside on this list; evaluate hands-on at Phase 3 as a possible MuJoCo+renderer collapse.
 - **Newton** — new physics engine from NVIDIA + Google DeepMind + Disney Research on Warp + OpenUSD, contributed to the Linux Foundation Sept 2025, interoperates with MuJoCo/MJWarp ([announcement](https://developer.nvidia.com/blog/announcing-newton-an-open-source-physics-engine-for-robotics-simulation/)); license unconfirmed ⚠. Watch.
 - **Isaac Sim/Lab** — nuance: Isaac Sim's GitHub source is Apache-2.0 and Isaac Lab is BSD-3, **but the Omniverse Kit SDK + assets underneath remain proprietary** ([license page](https://isaac-sim.github.io/IsaacLab/main/source/refs/license.html)). Exclusion stands.
 - **ManiSkill3** — Apache-2.0 code but CC BY-NC assets, Linux-first, custom-scene import path unclear ⚠; not primary.
@@ -54,7 +54,7 @@ All headless-scriptable, all confirmed current:
 ## 5. Drone + manipulator simulation (⚠K — research angle lost, knowledge-based)
 
 - Build the quad + 5-axis arm as one MuJoCo MJCF (free joint base, rotor thrust actuators, arm joints) — base/arm dynamic coupling is the whole point, and MuJoCo handles it cleanly. gym-pybullet-drones is API-shape prior art ⚠K.
-- Firmware-in-the-loop: PX4 SITL + Gazebo is the standard; **Betaflight SITL** exists but maturity unverified ⚠ — relevant because our FPV stack is Betaflight/ELRS-flavored.
+- Firmware-in-the-loop: PX4 SITL + Gazebo is the standard; **Betaflight SITL is verified real and documented** ([official docs](https://betaflight.com/docs/development/SITL)): builds from the main repo (`make TARGET=SITL`), the 2025.12 Configurator connects over websockets, and it bridges to external simulators — **Gazebo via bidirectional UDP (ports 9002/9003)** and RealFlight. Since our FPV stack is Betaflight/ELRS, firmware-realistic flight sim in our own reconstructed scenes is a supported path, not a hack. (Known quirks: WSL IP churn, UARTs as local TCP.)
 - Directly relevant verified prior art from the splat/real2sim survey: **SOUS VIDE** (Stanford, [arXiv 2412.16346](https://arxiv.org/html/2412.16346)) — FiGS couples simplified drone dynamics with splat rendering (~130 fps), trains a visuomotor policy on 100k–300k expert MPC pairs, zero-shot transfers with robustness to 30% mass change and wind; **FalconGym 2.0** (98.6% zero-shot gate navigation in 3DGS-reconstructed tracks ⚠). Flying a learned policy through a splat of *our own field site* is a legitimately reachable goal.
 
 ## 6. Real2Sim prior art (validated pattern)
@@ -67,7 +67,7 @@ All headless-scriptable, all confirmed current:
 
 ## Open questions
 
-- Genesis hands-on evaluation (could collapse MuJoCo+renderer into one stack).
-- Betaflight SITL vs PX4 SITL for firmware-realistic flight.
+- Genesis hands-on evaluation (could collapse MuJoCo+renderer into one stack; mesh import confirmed).
+- Betaflight SITL vs PX4 SITL for firmware-realistic flight (both confirmed viable; Betaflight matches our hardware).
 - Which Godot splat plugin to build the teleop viewer on (start with GDGS).
 - Physics-parameter estimation strategy for scanned objects (manual first).

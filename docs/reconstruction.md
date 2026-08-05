@@ -38,7 +38,7 @@ Capture → georeferenced, metrically honest 3D assets.
 
 ### ODM GCP file (verified from official docs)
 - `gcp_list.txt` header = a PROJ string (e.g. `+proj=utm +zone=10 +ellps=WGS84 +datum=WGS84 +units=m +no_defs`), an EPSG code, or `WGS84 UTM` (auto zone). Rows: `geo_x geo_y geo_z im_x im_y image_name [gcp_name]`. Each GCP should appear in ≥3 images; ~15 data rows minimum (5 points × 3 images); avoid NaN elevations ([docs.opendronemap.org/gcp](https://docs.opendronemap.org/gcp/)). WebODM has a GCP tagging UI.
-- ⚠ **Unresolved:** how ODM designates held-out *checkpoints* (validation-only points) — the docs don't spell it out. Must resolve before Phase 1; worst case we run twice (with/without the checkpoint rows) and difference them ourselves.
+- **Checkpoints — verified: ODM has no native mechanism.** There is no syntax or flag to mark an individual GCP as validation-only; the feature request is [ODM issue #1302](https://github.com/OpenDroneMap/ODM/issues/1302), still open (community confirmed "no support yet," Sept 2025). The only built-in workaround is all-or-nothing: with `--force-gps`, georeferencing comes from RTK EXIF and *all* supplied GCPs act as checkpoints reported in the quality report ([community thread](https://community.opendronemap.org/t/using-the-new-checkpoint-feature-with-odd-z-axis-results/25519)). **Our plan:** constrain with GCPs in the main run, then compute checkpoint residuals ourselves by comparing the surveyed checkpoint coordinates against the output cloud/orthophoto — a small script that belongs in our accuracy-report stage anyway.
 
 ### GCP surveying practice
 - Targets ≥5× GSD (durable targets 15–25× GSD); common size ~30–60 cm checkerboard/iron-cross ([skyebrowse guide](https://www.skyebrowse.com/news/posts/ground-control-points-guide)). RTK rover ±1–2 cm horizontal; GCP-constrained photogrammetry 2.5–5 cm typical. Distribute perimeter + center; hold 2–3 points out as checkpoints — they grade the run instead of constraining it.
@@ -54,7 +54,8 @@ Strategy unchanged: export PLY/OBJ → coarse align (manual point pairs, or Open
 Two verified additions from the research pass:
 - **CloudCompare's M3C2 plugin** is the right QC tool, not plain C2C: cylinder-based *signed* distances along locally-estimated normals, with uncertainty estimation and statistical significance testing; the M3C2-PM variant consumes photogrammetric precision maps ([CloudCompare wiki](https://www.cloudcompare.org/doc/wiki/index.php/M3C2_(plugin))).
 - **NASA Ames Stereo Pipeline `pc_align`** is a strong scriptable registration alternative: ICP point-to-plane default plus point-to-point, Nuth & Kääb, and Fast Global Registration; feature-based initialization for large offsets; reads LAS/LAZ/COPC/DEM/CSV ([docs](https://stereopipeline.readthedocs.io/en/latest/tools/pc_align.html)).
-- ⚠K still to survey: CloudCompare CLI automation limits, Open3D vs small_gicp performance, whether TEASER++ is ever needed.
+- **CloudCompare CLI — verified fully headless-capable** ([command line mode wiki](https://www.cloudcompare.org/doc/wiki/index.php?title=Command_line_mode)): `-SILENT` for headless, `-ICP` (with `-ADJUST_SCALE` — we keep it OFF to lock scanner scale — `-OVERLAP`, iteration/sampling controls), `-C2C_DIST`, and **`-M3C2 <params_file>`** (create the params file once in the GUI, reuse forever). The whole registration+QC stage can be CloudCompare CLI if Open3D scripting ever disappoints.
+- ⚠K still to survey: Open3D vs small_gicp performance, whether TEASER++ is ever needed.
 
 ## 4. Point cloud plumbing & QC
 
@@ -74,6 +75,5 @@ Two verified additions from the research pass:
 ## Open questions
 
 - Does our drone log raw GNSS? (Almost certainly not → GCP-only accuracy; consider a strap-on GNSS logger later.)
-- ODM checkpoint designation mechanism (see §2).
 - Base station: PPP/long-average corrected? Value pinned where?
 - Einstar export: PLY with vertex colors confirmed?
