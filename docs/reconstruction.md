@@ -30,7 +30,7 @@ Capture → georeferenced, metrically honest 3D assets.
 ### PPK workflow (verified against rtklibexplorer's own writeup)
 - Flow: RTKCONV converts raw logs (.ubx) → RINEX; RTKPOST post-processes with forward/backward/**combined** filter — combined runs the Kalman filter both directions, "two chances to find a fix" plus false-fix detection ([rtklibexplorer blog](https://rtklibexplorer.wordpress.com/2017/08/21/ppk-vs-rtk-a-look-at-rtklib-for-post-processing-solutions/)).
 - PPK beats RTK for remote/obstructed sites — no radio link to drop. Centimeter-level achievable with short baselines and good geometry.
-- **Reality check for our drone:** consumer drones (DJI Mavic class) do not log raw GNSS observations — PPK requires enterprise-class hardware (e.g. Phantom 4 RTK) or an added GNSS logger ([hiredronepilot.uk](https://hiredronepilot.uk/blog/what-is-ppk-post-processing-kinematic-for-drones/), verified; DJI-specific claims ⚠). Standard consumer GNSS ≈ 2 m before correction. **Unless we add a logger, our accuracy comes from GCPs, not PPK.** If we do log raw: 5–10 Hz, ~15 min minimum flight.
+- **Reality check for our drone (DJI Mini 3):** DJI's consumer line does not log raw GNSS observations — PPK requires enterprise-class hardware (e.g. Phantom 4 RTK) or an added GNSS logger ([hiredronepilot.uk](https://hiredronepilot.uk/blog/what-is-ppk-post-processing-kinematic-for-drones/)). Standard consumer GNSS ≈ 2 m before correction. **So our accuracy comes from GCPs, not PPK.** The RTKLIB/ExifTool material above stays documented for a future logger or different aircraft; it's not on the Phase 1 path.
 
 ### Geotag injection with ExifTool (verified from official docs)
 - `exiftool -geotag=track.log <images>` — supports 15+ track formats plus CSV (GPSDateTime, GPSLatitude, GPSLongitude columns); `-geosync` handles camera↔GPS clock offset; interpolation window defaults 1800 s ([exiftool geotag docs](https://exiftool.sourceforge.net/geotag.html)).
@@ -74,6 +74,6 @@ Two verified additions from the research pass:
 
 ## Open questions
 
-- Does our drone log raw GNSS? (Almost certainly not → GCP-only accuracy; consider a strap-on GNSS logger later.)
+- ~~Does our drone log raw GNSS?~~ Answered: the drone is a DJI Mini 3 → no raw logging, GCP-only accuracy. (A strap-on GNSS logger remains a future option.)
 - Base station: PPP/long-average corrected? Value pinned where?
 - Einstar export: PLY with vertex colors confirmed?

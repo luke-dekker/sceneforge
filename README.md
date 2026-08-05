@@ -16,7 +16,7 @@ A reconstructed scene with centimeter-level ground control isn't just a pretty m
 
 | Layer | Hardware |
 |---|---|
-| Aerial | Consumer camera drone (photogrammetry) |
+| Aerial | DJI Mini 3 (photogrammetry) |
 | Close range | Shining3D Einstar handheld scanner (sub-mm, exports PLY/OBJ) |
 | Control | Self-hosted RTK base (NTRIP/RTCM) + rover-surveyed ground control points |
 
