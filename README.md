@@ -30,7 +30,7 @@ Ground control points constrain the reconstruction; held-out checkpoints measure
 
 ## Status
 
-🔬 **Research phase.** We're currently surveying and comparing the open tooling for each stage before writing pipeline code. Findings live in [`docs/`](docs/):
+🔬 **Research phase.** The tooling survey for each stage is drafted in [`docs/`](docs/) — recommended stacks chosen, with ⚠ flags on the specific claims to verify against current upstream docs before building on them:
 
 - `docs/reconstruction.md` — photogrammetry engines, RTK/PPK, GCP workflow, scanner registration, point cloud QC
 - `docs/stereo-ground-truth.md` — generating supervised stereo depth training data from reconstructed scenes
