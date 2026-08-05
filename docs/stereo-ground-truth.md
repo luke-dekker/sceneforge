@@ -45,6 +45,7 @@ The aborted research pass surfaced active 2025-26 work using splats for robot tr
 - **Architectures**: RAFT-Stereo and IGEV-Stereo are the open, well-maintained fine-tuning workhorses; FoundationStereo (NVIDIA, 2025) is the strong zero-shot baseline to beat ⚠ check its license before building on it. Training code for RAFT/IGEV expects SceneFlow-style folder layouts with PFM disparity files — cheap for us to emit, so **PFM + SceneFlow layout is our export format**.
 - **Evaluation**: hold out real captured stereo pairs of a scanned scene; project the registered scan into them for a small *real* test set (mini-ETH3D). Metrics: EPE + bad-2.0/bad-1.0.
 - Hardware note: the RealSense's stereo pair is IR (with optional projector); for RGB stereo either use its left IR + RGB carefully or build a cheap dual-RGB rig (two global-shutter OAK/ArduCam modules on a bar) — decide when Phase 2 starts.
+- Verified camera facts (checked against vendor repos, 2026-08): **librealsense is Apache-2.0** and actively maintained (org migrating IntelRealSense → realsenseai; the old URL redirect may not last); **D455 = 95 mm baseline, global-shutter**; **Luxonis DepthAI SDK is MIT**, with the OAK 4 platform announced Jan 2026; **Stereolabs ZED SDK is proprietary** and requires an NVIDIA GPU — out, per project principles. Still unverified ⚠: D435 ~50 mm baseline, OAK-D 75 mm baseline, per-model shutter types, IR-projector-off and Y8 raw modes (vendor datasheet pages were inaccessible).
 
 ## 5. The real-capture alternative (ETH3D-style)
 
