@@ -1,0 +1,23 @@
+# data — captures and reconstructions are large; never commit them
+data/
+*.las
+*.laz
+*.copc.laz
+*.ply
+*.obj
+*.glb
+*.gltf
+*.tif
+*.tiff
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# editors / os
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
