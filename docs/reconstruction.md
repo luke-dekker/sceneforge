@@ -1,69 +1,79 @@
 # Reconstruction & accuracy pipeline
 
-Capture → georeferenced, metrically honest 3D assets. Written from working knowledge (early 2026); items marked ⚠ deserve a quick check against current docs before we build on them.
+Capture → georeferenced, metrically honest 3D assets.
+
+**Provenance:** merged from a web-research pass (August 2026) and working knowledge. Claims with a URL were read from that source by a research agent (single read, not independently double-checked). ⚠ marks claims still needing verification. Two research angles were lost before completing — the photogrammetry engine comparison and the scanner-registration tooling survey — so those sections are knowledge-based (marked ⚠K) pending a targeted follow-up.
 
 ## Recommended stack
 
 | Stage | Tool | Why |
 |---|---|---|
-| Photogrammetry | **OpenDroneMap (ODM via Docker, NodeODM API)** | Purpose-built for drone mapping: GCP support, georeferenced outputs, accuracy report, fully headless REST API |
-| Research-grade alternative | **COLMAP + OpenMVS** | Finer control over SfM/MVS when ODM's pipeline is limiting; also produces the poses needed for splat training |
-| PPK | **RTKLIB (rtklibexplorer/demo5 fork)** | The maintained fork tuned for low-cost receivers; post-processes drone/rover logs against our own base RINEX |
-| Geotag injection | **ExifTool** | Rewrite image EXIF GPS from PPK solutions before photogrammetry |
-| Registration & QC | **CloudCompare (GUI + CLI)** + **Open3D** | Coarse+ICP alignment of scanner data into the georeferenced frame; cloud-to-cloud distance QC |
-| Point cloud plumbing | **PDAL** | JSON-defined pipelines: CRS reprojection, filtering, LAS/LAZ/COPC output — ideal for node-graph automation |
+| Photogrammetry | **OpenDroneMap (ODM via Docker, NodeODM API)** | Purpose-built for drone mapping: GCP support, georeferenced outputs, accuracy stats, fully headless REST API |
+| Research-grade alternative | **COLMAP + OpenMVS** | Finer SfM/MVS control; COLMAP poses also feed Gaussian splat training |
+| PPK | **RTKLIB (rtklibexplorer fork)** | Maintained fork tuned for low-cost receivers |
+| Geotag injection | **ExifTool** | Rewrite EXIF GPS from PPK solutions before photogrammetry |
+| Registration & QC | **CloudCompare (+ M3C2 plugin)** + **Open3D**; **ASP pc_align** as alternative | Alignment of scanner data into the georeferenced frame; distance-based QC |
+| Point cloud plumbing | **PDAL** (2.10.x) | JSON pipelines: CRS reprojection, filtering, LAS/LAZ/COPC — ideal for node-graph automation |
 
-## 1. Photogrammetry engines
+## 1. Photogrammetry engines (⚠K — comparison survey lost, knowledge-based)
 
-- **ODM / WebODM / NodeODM** — the direct open replacement for Drone2Map. Consumes a `gcp_list.txt`, produces orthomosaic, DSM/DTM, textured mesh, georeferenced point cloud, and a processing report with GCP residuals. NodeODM exposes everything over REST; WebODM is the friendly front-end. Runs best in Docker (fine on Windows 11 + WSL2).
-- **COLMAP + OpenMVS** — best-in-class sparse SfM plus dense reconstruction/texturing. More accurate camera calibration control; no native GCP/georeferencing workflow (georeferencing is bolted on via similarity transform from known points). Keep in the toolbox: COLMAP poses are also the input for Gaussian splat training.
-- **Meshroom (AliceVision)** — node-graph UI (aesthetically on-brand), decent quality, weaker geo workflow and slower; not the primary.
-- **MicMac (IGN)** — arguably the most rigorous photogrammetric accuracy of the open options, but a steep, idiosyncratic CLI; revisit only if we hit an accuracy wall. ⚠ maintenance cadence worth checking.
-
-**Choice: ODM primary.** It covers the GCP→report loop out of the box and its API matches our "every stage headless" principle.
+- **ODM / WebODM / NodeODM** — the direct open replacement for Drone2Map: orthomosaic, DSM/DTM, textured mesh, georeferenced point cloud, processing report. NodeODM exposes everything over REST; Docker on Windows 11/WSL2. Verified accuracy expectations from official docs: without GCPs, relative accuracy 1–3× GSD but absolute horizontal error 2–6 m; with GCPs ~2.5× GSD horizontal / 4× vertical ([docs.opendronemap.org/map-accuracy](https://docs.opendronemap.org/map-accuracy/)). ODM 3.5.6 (July 2025) exports OGC 3D Tiles directly ([docs](https://docs.opendronemap.org/arguments/3d-tiles/)).
+- **COLMAP + OpenMVS** — best-in-class sparse SfM + dense reconstruction; no native GCP workflow (similarity transform bolted on). Keep for splat training poses and fine calibration control. ⚠K
+- **Meshroom (AliceVision)**, **MicMac** — secondary options; MicMac is the accuracy heavyweight with a brutal CLI. ⚠K
 
 ## 2. RTK / PPK and ground control
 
-Two complementary accuracy inputs:
+### RTKLIB — verified state of the project
+- Original RTKLIB (tomojitakasu) last released v2.4.2 in 2013; 2.4.2+ is BSD-2-clause with two extra clauses ([github](https://github.com/tomojitakasu/RTKLIB)).
+- The **rtklibexplorer "demo5" branch was retired July 26, 2025 — all future activity is on that repo's main branch** (RTKLIB-EX 2.5.1, June 2024, ships rnx2rtkp, rtkpost, convbin, str2str) ([releases](https://github.com/rtklibexplorer/RTKLIB/releases)). Latest Windows binaries: b34 series at [rtkexplorer.com](https://rtkexplorer.com/downloads/rtklib-code/). The fork targets low-cost single/dual-frequency receivers, especially u-blox — exactly our hardware class.
 
-1. **PPK on the drone** (if the drone logs raw GNSS — many consumer drones don't; if ours doesn't, skip and rely on GCPs alone):
-   - Convert base + rover logs to RINEX, post-process with RTKLIB demo5 (`rnx2rtkp`), get fixed-solution positions per exposure event, write back into EXIF with ExifTool.
-2. **GCPs surveyed with the RTK rover** against our own base:
-   - Targets: high-contrast checkerboard or iron-cross mats, sized so they span ≥10–20 px in imagery at flight altitude.
-   - Occupation: ~30 s fixed-solution average per point is plenty when the baseline is short.
-   - Distribute GCPs around the perimeter + center; **hold 2–3 out as checkpoints** — they don't constrain the solution, they grade it. Checkpoint RMSE is the honest accuracy number we publish per run.
-   - Coordinate systems: survey in the base's frame, work in a projected CRS (e.g. the local UTM zone, EPSG code pinned per site). Heights: RTK gives ellipsoidal; if we ever need orthometric, apply a geoid model (e.g. GEOID18 via PROJ grids). For ML/sim use, staying ellipsoidal + local ENU is simpler and self-consistent.
-   - One subtlety worth a plan: our base's own coordinates define absolute accuracy. Average the base position long-term or OPUS/PPP-correct it once ⚠ (verify current free PPP services), then never move it.
+### PPK workflow (verified against rtklibexplorer's own writeup)
+- Flow: RTKCONV converts raw logs (.ubx) → RINEX; RTKPOST post-processes with forward/backward/**combined** filter — combined runs the Kalman filter both directions, "two chances to find a fix" plus false-fix detection ([rtklibexplorer blog](https://rtklibexplorer.wordpress.com/2017/08/21/ppk-vs-rtk-a-look-at-rtklib-for-post-processing-solutions/)).
+- PPK beats RTK for remote/obstructed sites — no radio link to drop. Centimeter-level achievable with short baselines and good geometry.
+- **Reality check for our drone:** consumer drones (DJI Mavic class) do not log raw GNSS observations — PPK requires enterprise-class hardware (e.g. Phantom 4 RTK) or an added GNSS logger ([hiredronepilot.uk](https://hiredronepilot.uk/blog/what-is-ppk-post-processing-kinematic-for-drones/), verified; DJI-specific claims ⚠). Standard consumer GNSS ≈ 2 m before correction. **Unless we add a logger, our accuracy comes from GCPs, not PPK.** If we do log raw: 5–10 Hz, ~15 min minimum flight.
 
-**ODM GCP format** — `gcp_list.txt`: first line is the CRS (e.g. `EPSG:32610`), then one line per observation: `geo_x geo_y geo_z pixel_x pixel_y image_name` (a GCP appears once per image it's visible in, ≥3 images each). ⚠ verify exact current format/flags before first run. WebODM has a built-in GCP tagging interface, which beats hand-tagging.
+### Geotag injection with ExifTool (verified from official docs)
+- `exiftool -geotag=track.log <images>` — supports 15+ track formats plus CSV (GPSDateTime, GPSLatitude, GPSLongitude columns); `-geosync` handles camera↔GPS clock offset; interpolation window defaults 1800 s ([exiftool geotag docs](https://exiftool.sourceforge.net/geotag.html)).
+- Direct per-image write: `exiftool -GPSLatitude=... -GPSLongitude=... -GPSLatitudeRef=N -GPSLongitudeRef=E img.jpg`.
 
-## 3. Einstar scans → georeferenced frame
+### ODM GCP file (verified from official docs)
+- `gcp_list.txt` header = a PROJ string (e.g. `+proj=utm +zone=10 +ellps=WGS84 +datum=WGS84 +units=m +no_defs`), an EPSG code, or `WGS84 UTM` (auto zone). Rows: `geo_x geo_y geo_z im_x im_y image_name [gcp_name]`. Each GCP should appear in ≥3 images; ~15 data rows minimum (5 points × 3 images); avoid NaN elevations ([docs.opendronemap.org/gcp](https://docs.opendronemap.org/gcp/)). WebODM has a GCP tagging UI.
+- ⚠ **Unresolved:** how ODM designates held-out *checkpoints* (validation-only points) — the docs don't spell it out. Must resolve before Phase 1; worst case we run twice (with/without the checkpoint rows) and difference them ourselves.
 
-The Einstar's strength is sub-mm relative accuracy and correct metric scale; it knows nothing about where it is in the world. Registration strategy:
+### GCP surveying practice
+- Targets ≥5× GSD (durable targets 15–25× GSD); common size ~30–60 cm checkerboard/iron-cross ([skyebrowse guide](https://www.skyebrowse.com/news/posts/ground-control-points-guide)). RTK rover ±1–2 cm horizontal; GCP-constrained photogrammetry 2.5–5 cm typical. Distribute perimeter + center; hold 2–3 points out as checkpoints — they grade the run instead of constraining it.
+- Occupation: ~30 s of fixed-solution averaging per point is fine on short baselines (the 30–40 min figures in survey guides are for static GNSS, not RTK-fixed rovers).
+- Heights: RTK gives ellipsoidal. If orthometric is ever needed: h = H + N; EGM96 = EPSG:5773, EGM2008 = EPSG:3855; GDAL/PROJ converts via `+geoidgrids=egm96_15.gtx`/`egm08_25.gtx` ([worked example](https://spatialthoughts.com/2019/10/26/convert-between-orthometric-and-ellipsoidal-elevations-using-gdal/)). For ML/sim use, staying ellipsoidal + local ENU is simpler and self-consistent.
+- Base station absolute position defines absolute accuracy: long-average or PPP-correct it once ⚠, pin the value in version control, never move it.
+- Our base already broadcasts RTCM over NTRIP; RTKLIB's `str2str` can relay/convert streams (serial/TCP/NTRIP in/out, RTCM3 message filtering) if we need to bridge anything ([reference](https://community.gpswebshop.com/2023/11/26/setting-up-a-free-ntrip-server-with-rtklibs-strsvr/)).
 
-1. Export PLY/OBJ from the (proprietary, unavoidable) capture software.
-2. **Coarse align** to the photogrammetry model: manual point-pair picking in CloudCompare, or automated global registration (Open3D FPFH + RANSAC) when geometry is distinctive.
-3. **Fine align** with ICP — point-to-plane, scale *locked* (the scanner's scale is more trustworthy than photogrammetry's; if there's a scale disagreement, that's a finding about our photogrammetry, not something to absorb silently).
-4. **QC**: cloud-to-cloud distance between the registered scan and the photogrammetry surface. Report median + 95th percentile. This doubles as an independent check on the whole chain.
+## 3. Einstar scans → georeferenced frame (⚠K — tooling survey lost, knowledge-based)
 
-Automation: CloudCompare has a capable CLI (`-ICP`, `-C2C_DIST`, transforms, format conversion) but coarse alignment is the weak point headlessly. Practical split: **Open3D (Python) for coarse+fine registration in scripts; CloudCompare for interactive inspection**. `small_gicp` is a faster modern ICP library if Open3D's becomes a bottleneck. (TEASER++ exists for robust global registration; overkill until proven needed.)
+Strategy unchanged: export PLY/OBJ → coarse align (manual point pairs, or Open3D FPFH+RANSAC) → fine ICP (point-to-plane, **scale locked** — the scanner's metric scale outranks photogrammetry's; a scale disagreement is a finding, not something to absorb) → QC via cloud-to-cloud distances.
+
+Two verified additions from the research pass:
+- **CloudCompare's M3C2 plugin** is the right QC tool, not plain C2C: cylinder-based *signed* distances along locally-estimated normals, with uncertainty estimation and statistical significance testing; the M3C2-PM variant consumes photogrammetric precision maps ([CloudCompare wiki](https://www.cloudcompare.org/doc/wiki/index.php/M3C2_(plugin))).
+- **NASA Ames Stereo Pipeline `pc_align`** is a strong scriptable registration alternative: ICP point-to-plane default plus point-to-point, Nuth & Kääb, and Fast Global Registration; feature-based initialization for large offsets; reads LAS/LAZ/COPC/DEM/CSV ([docs](https://stereopipeline.readthedocs.io/en/latest/tools/pc_align.html)).
+- ⚠K still to survey: CloudCompare CLI automation limits, Open3D vs small_gicp performance, whether TEASER++ is ever needed.
 
 ## 4. Point cloud plumbing & QC
 
-- **PDAL** pipelines (JSON) handle: reprojection (`filters.reprojection`), cropping, outlier removal (`filters.outlier`), ground classification (`filters.smrf`), thinning, and writing LAS/LAZ/**COPC** (cloud-optimized, streamable — good archive format).
-- **Per-run accuracy report** (the pipeline should emit this automatically):
-  - GCP residuals + held-out checkpoint RMSE (from ODM report)
-  - PPK fix rate, if used
-  - Scanner registration ICP RMSE + C2C distance stats
-  - Point density map
-- Open3D covers mesh sampling, normals, and any custom metrics in Python.
+- **PDAL 2.10.2** (June 2024 — a search snippet claiming a 2026 release was corrected against GitHub) ([releases](https://github.com/PDAL/PDAL/releases)). Filters of interest: `reprojection` (supports compound CRS like `EPSG:4326+3855` and geoidgrids), `smrf` (ground classification, Pingel 2013), `outlier`, `csf` (cloth simulation ground extraction), `crop`, `hexbin` (density/boundary); COPC read/write. Most per-filter details came from snippets (pdal.io blocked the fetcher) — ⚠ spot-check exact stage options at build time. Python bindings: `conda install -c conda-forge python-pdal`.
+- Formats: **COPC** (LAZ 1.4 + embedded octree, HTTP range-readable) as archive/streaming format; LASzip is Apache-2.0, 7–20% of original size; `untwine` builds COPC/EPT (GPLv3 ⚠ note if we ship it); QGIS 3.32+ renders COPC natively; Potree for web viewing.
+- **Per-run accuracy report** (pipeline must emit automatically): GCP residuals + checkpoint RMSE, PPK fix rate if used, ICP registration RMSE, M3C2 distance stats, density map. ASPRS Positional Accuracy Standards Ed. 2 (2023/2024) now uses RMSE as the single accuracy measure — report to that convention ⚠ (official PDF unread). No off-the-shelf open "accuracy report generator" exists — confirmed gap, we build our own (good; it's a natural node).
+- **Open3D 0.19** for Python-side mesh/cloud ops (downsampling, outlier removal, RANSAC planes, headless).
+- Full salvaged claim list (55 items with per-claim confidence): [appendix-point-cloud-claims.md](appendix-point-cloud-claims.md).
 
-## 5. Notes from prior-art scan (partial)
+## 5. Prior art — combined UAV + close-range + GNSS
 
-The aborted web-research pass surfaced (unverified beyond snippets ⚠): the standard published pattern for UAV + terrestrial fusion is exactly the above — GNSS-controlled photogrammetry as the georeferenced skeleton, close-range scans ICP-registered into it, with error budgets dominated by GCP survey quality and image network geometry. Nothing surfaced contradicts the recommended stack.
+- **Oniga et al. 2024** (ISPRS Archives XLVIII-2/W4): Sony ZV1 + Emlid Reach RS2/M2, direct georeferencing with lever-arm estimation, no GCPs, cm-level, validated against mobile laser scanning ([paper](https://isprs-archives.copernicus.org/articles/XLVIII-2-W4-2024/333/2024/)) — the one fully-verified source.
+- UAV + handheld structured-light fusion for concrete inspection: UAV for global mm-resolution coverage, structured light for µm hotspots, coarse-to-fine feature registration; notes photogrammetry scale drift vs structured-light metric stability — exactly our Einstar logic ([abstract](https://www.researchgate.net/publication/381877445)) ⚠.
+- TLS + UAV heritage-church fusion: cloud agreement within 1.7 cm, ~40% coverage improvement; TLS blind on roofs, UAV weak on facade detail; common targets needed ⚠.
+- Notable gaps found: no published Einstar+UAV academic study, no ODM+TLS workflow write-ups, no per-step error-budget templates. Publishing ours would be a genuine contribution.
 
 ## Open questions
 
-- Does our drone log raw GNSS / expose exposure events? Determines whether PPK is on the table or GCP-only.
-- Base station absolute position: has it been PPP/long-average corrected, and is the value pinned somewhere version-controlled?
-- Einstar export: confirm PLY with vertex colors (helps coarse registration visually and any learned features later).
+- Does our drone log raw GNSS? (Almost certainly not → GCP-only accuracy; consider a strap-on GNSS logger later.)
+- ODM checkpoint designation mechanism (see §2).
+- Base station: PPP/long-average corrected? Value pinned where?
+- Einstar export: PLY with vertex colors confirmed?
