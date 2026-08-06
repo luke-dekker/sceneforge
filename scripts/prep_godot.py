@@ -83,6 +83,12 @@ def main():
     crs = CRS.from_proj4(proj)
     to_wgs84 = Transformer.from_crs(crs, CRS.from_epsg(4326), always_xy=True)
     lon, lat = to_wgs84.transform(east_off, north_off)
+    # Local linearization so the engine can show lat/lon without projection math.
+    # Error over a few hundred meters is far below reconstruction accuracy.
+    lon_e, lat_e = to_wgs84.transform(east_off + 1.0, north_off)
+    lon_n, lat_n = to_wgs84.transform(east_off, north_off + 1.0)
+    jacobian = {"dlat_de": lat_e - lat, "dlat_dn": lat_n - lat,
+                "dlon_de": lon_e - lon, "dlon_dn": lon_n - lon}
 
     scene = {
         "name": name,
@@ -94,6 +100,7 @@ def main():
         },
         "engine_frame": {"convention": "gltf-Y-up", "x": "east", "y": "up", "z": "south",
                          "units": "meters"},
+        "wgs84_jacobian": jacobian,  # deg per meter of easting/northing at the origin
         "terrain_elevation_range_m": [round(z_min, 2), round(z_max, 2)],
         "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset",
     }

@@ -39,6 +39,11 @@ func _spawn_player() -> void:
 	var elev: Array = georef.get("terrain_elevation_range_m", [0.0, 50.0])
 	var z0: float = georef.get("crs", {}).get("z_offset", 0.0)
 	player.position = Vector3(0, elev[1] - z0 + 5.0, 0)
+	var surveyor := preload("res://surveyor.gd").new()
+	surveyor.cam = player.cam
+	surveyor.georef = georef
+	surveyor.exclude_body = player
+	add_child(surveyor)
 
 
 func _build_environment() -> void:
@@ -63,7 +68,7 @@ func _build_hud() -> void:
 		georef.get("name", "scene"),
 		georef.get("crs", {}).get("proj4", "no georef"),
 		origin.get("lat", 0.0), origin.get("lon", 0.0), origin.get("h", 0.0),
-	]
+	] + "\nLMB measure  C clear"
 	label.position = Vector2(8, 8)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_constant_override("outline_size", 4)
