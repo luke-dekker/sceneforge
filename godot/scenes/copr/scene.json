@@ -1,0 +1,45 @@
+{
+  "name": "copr-gcp",
+  "source": {
+    "pipeline": "ODM",
+    "asset": "odm_textured_model_geo_decoded.glb"
+  },
+  "crs": {
+    "proj4": "+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs +type=crs",
+    "utm_offset": [
+      235262.0,
+      3811210.0
+    ],
+    "z_offset": -3.862
+  },
+  "origin_geopose": {
+    "position": {
+      "lat": 34.40847172223868,
+      "lon": -119.88016783594416,
+      "h": -3.862
+    },
+    "angles": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
+  },
+  "engine_frame": {
+    "convention": "gltf-Y-up",
+    "x": "east",
+    "y": "up",
+    "z": "south",
+    "units": "meters"
+  },
+  "wgs84_jacobian": {
+    "dlat_de": 2.5606816222989437e-07,
+    "dlat_dn": 9.006891296792219e-06,
+    "dlon_de": 1.0867195499031368e-05,
+    "dlon_dn": -3.089577376158559e-07
+  },
+  "terrain_elevation_range_m": [
+    -3.86,
+    4.17
+  ],
+  "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset"
+}

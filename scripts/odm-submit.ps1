@@ -12,7 +12,8 @@ $imgs = Get-ChildItem $ImagesDir -File | Where-Object { $_.Extension -match "^\.
 if (-not $imgs) { Write-Error "No images found in $ImagesDir"; exit 1 }
 
 $curlArgs = @("-s", "-X", "POST", "http://localhost:3000/task/new", "-F", "name=$Name")
-if ($OptionsJson) { $curlArgs += @("-F", "options=$OptionsJson") }
+# PS 5.1 strips embedded quotes when passing args to native exes; escape for curl
+if ($OptionsJson) { $curlArgs += @("-F", "options=$($OptionsJson.Replace('"','\"'))") }
 foreach ($f in $imgs) { $curlArgs += @("-F", "images=@$($f.FullName)") }
 if ($GcpFile) { $curlArgs += @("-F", "images=@$((Get-Item $GcpFile).FullName)") }
 

@@ -2,13 +2,14 @@ extends Node3D
 ## Loads a prepped sceneforge scene (glb + scene.json sidecar), gives it
 ## trimesh collision, and drops a walk/fly player into it.
 
-const SCENE_DIR := "res://scenes/aukerman"
-const SCENE_GLB := SCENE_DIR + "/aukerman-smoke.glb"
+static var scene_idx := 0  # survives reload_current_scene, so Tab cycles
 
+var scene_dirs: Array[String] = []
 var georef: Dictionary = {}
 
 
 func _ready() -> void:
+	_discover_scenes()
 	_load_georef()
 	_build_environment()
 	_load_scene()
@@ -16,16 +17,40 @@ func _ready() -> void:
 	_build_hud()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.physical_keycode == KEY_TAB \
+			and scene_dirs.size() > 1:
+		scene_idx = (scene_idx + 1) % scene_dirs.size()
+		get_tree().reload_current_scene()
+
+
+func _scene_dir() -> String:
+	return "res://scenes/" + scene_dirs[scene_idx]
+
+
+func _discover_scenes() -> void:
+	for d in DirAccess.get_directories_at("res://scenes"):
+		if FileAccess.file_exists("res://scenes/%s/scene.json" % d):
+			scene_dirs.append(d)
+	if scene_dirs.is_empty():
+		push_error("no scenes with scene.json under res://scenes")
+
+
 func _load_georef() -> void:
-	var f := FileAccess.open(SCENE_DIR + "/scene.json", FileAccess.READ)
+	var f := FileAccess.open(_scene_dir() + "/scene.json", FileAccess.READ)
 	if f:
 		georef = JSON.parse_string(f.get_as_text())
 	else:
-		push_warning("scene.json not found next to glb")
+		push_warning("scene.json not found in " + _scene_dir())
 
 
 func _load_scene() -> void:
-	var packed: PackedScene = load(SCENE_GLB)
+	var glb := ""
+	for f in DirAccess.get_files_at(_scene_dir()):
+		if f.ends_with(".glb"):
+			glb = _scene_dir() + "/" + f
+			break
+	var packed: PackedScene = load(glb)
 	var scene := packed.instantiate()
 	add_child(scene)
 	for mi in scene.find_children("*", "MeshInstance3D", true, false):
@@ -68,7 +93,7 @@ func _build_hud() -> void:
 		georef.get("name", "scene"),
 		georef.get("crs", {}).get("proj4", "no georef"),
 		origin.get("lat", 0.0), origin.get("lon", 0.0), origin.get("h", 0.0),
-	] + "\nLMB measure  C clear"
+	] + "\nLMB measure  C clear  Tab next scene"
 	label.position = Vector2(8, 8)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_constant_override("outline_size", 4)
