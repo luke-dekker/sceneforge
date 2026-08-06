@@ -1,39 +1,45 @@
 {
   "name": "aukerman-smoke",
   "source": {
-	"pipeline": "ODM",
-	"asset": "odm_textured_model_geo_decoded.glb"
+    "pipeline": "ODM",
+    "asset": "odm_textured_model_geo_decoded.glb"
   },
   "crs": {
-	"proj4": "+proj=utm +zone=17 +datum=WGS84 +units=m +no_defs +type=crs",
-	"utm_offset": [
-	  437036.0,
-	  4572789.0
-	],
-	"z_offset": 227.396
+    "proj4": "+proj=utm +zone=17 +datum=WGS84 +units=m +no_defs +type=crs",
+    "utm_offset": [
+      437036.0,
+      4572789.0
+    ],
+    "z_offset": 227.396
   },
   "origin_geopose": {
-	"position": {
-	  "lat": 41.304102434528055,
-	  "lon": -81.75213125577146,
-	  "h": 227.396
-	},
-	"angles": {
-	  "yaw": 0.0,
-	  "pitch": 0.0,
-	  "roll": 0.0
-	}
+    "position": {
+      "lat": 41.304102434528055,
+      "lon": -81.75213125577146,
+      "h": 227.396
+    },
+    "angles": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
   },
   "engine_frame": {
-	"convention": "gltf-Y-up",
-	"x": "east",
-	"y": "up",
-	"z": "south",
-	"units": "meters"
+    "convention": "gltf-Y-up",
+    "x": "east",
+    "y": "up",
+    "z": "south",
+    "units": "meters"
+  },
+  "wgs84_jacobian": {
+    "dlat_de": 7.804632673469314e-08,
+    "dlat_dn": 9.006984214465774e-06,
+    "dlon_de": 1.1944430767130143e-05,
+    "dlon_dn": -1.0350041179663094e-07
   },
   "terrain_elevation_range_m": [
-	227.4,
-	268.42
+    227.4,
+    268.42
   ],
   "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset"
 }
