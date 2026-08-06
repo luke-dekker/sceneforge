@@ -1,5 +1,7 @@
 # data — captures and reconstructions are large; never commit them
 data/
+runs/
+godot/.godot/
 *.las
 *.laz
 *.copc.laz
