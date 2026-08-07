@@ -129,6 +129,8 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/api/untag":
                 lst = tags.get(body["name"], [])
                 tags[body["name"]] = [t for i, t in enumerate(lst) if i != body["index"]]
+            elif self.path == "/api/clear":
+                tags[body["name"]] = []
             save_tags(tags)
         self._send(json.dumps({"ok": True, "tags": tags}))
 
@@ -166,6 +168,11 @@ main{display:flex; flex:1; min-height:0}
 .pt .nm{flex:1}
 .pt .ct{color:var(--dim); font-size:11px}
 .pt.sel .ct{color:var(--flag)}
+.pt .clr{display:none; color:var(--bad); padding:0 2px; font-size:13px}
+.pt.sel .clr{display:inline}
+.pt .clr:hover{background:var(--bad); color:#14161a}
+.mp.off .d{background:transparent !important; border:2px dashed var(--dim)}
+.mp.off.sel .d{border-color:var(--flag)}
 #railfoot{padding:10px 14px; color:var(--dim); font-size:11px; border-top:1px solid var(--line); margin-top:8px}
 #stage{flex:1; min-width:0; display:flex; flex-direction:column}
 #hint{padding:6px 16px; color:var(--dim); font-size:11px; border-bottom:1px solid var(--line)}
@@ -271,9 +278,13 @@ function renderMap(){
   for(const p of M.points){
     const c=count(p.name);
     const d=document.createElement('div');
-    d.className='mp '+(c>=3?'ok':c>0?'n'+c:'')+(p.name===sel?' sel':'');
-    d.style.left=((p.e-e0)/(e1-e0)*100)+'%';
-    d.style.top=((n1-p.n)/(n1-n0)*100)+'%';
+    let xp=(p.e-e0)/(e1-e0)*100, yp=(n1-p.n)/(n1-n0)*100;
+    const off=xp<0||xp>100||yp<0||yp>100;
+    xp=Math.min(99,Math.max(1,xp)); yp=Math.min(99,Math.max(1,yp));
+    d.className='mp '+(c>=3?'ok':c>0?'n'+c:'')+(p.name===sel?' sel':'')+(off?' off':'');
+    d.title=off?p.name+' — just outside the orthophoto extent':p.name;
+    d.style.left=xp+'%';
+    d.style.top=yp+'%';
     d.innerHTML=`<div class="d"></div><span class="t">${p.name.replace('cop-','')}</span>`;
     d.onclick=()=>{if(mMoved)return; sel=p.name; render();};
     pan.appendChild(d);
@@ -307,8 +318,14 @@ function render(){
     const c=count(p.name); if(c>=3)done++;
     const d=document.createElement('div');
     d.className='pt '+(c>=3?'ok':c>0?'n'+c:'')+(p.name===sel?' sel':'');
-    d.innerHTML=`<span class="dot"></span><span class="nm">${p.name}</span><span class="ct">${c}&#215;</span>`;
+    d.innerHTML=`<span class="dot"></span><span class="nm">${p.name}</span><span class="ct">${c}&#215;</span>`
+      +(c>0?`<span class="clr" title="clear all ${c} tags for ${p.name}">&#10006;</span>`:'');
     d.onclick=()=>{sel=p.name; render();};
+    const clr=d.querySelector('.clr');
+    if(clr)clr.onclick=async ev=>{ev.stopPropagation();
+      if(!confirm(`Remove all ${c} tags for ${p.name}?`))return;
+      await post('/api/clear',{name:p.name}); render();
+      toast(`${p.name} cleared`,'#e8b93c');};
     rail.appendChild(d);
   }
   const f=document.createElement('div'); f.id='railfoot';
