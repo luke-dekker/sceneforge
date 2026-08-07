@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cb7ep4yaqayk3"
-path="res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.ctex"
+path.s3tc="res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.s3tc.ctex"
+path.etc2="res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ce7eaa5d54028607f00875fa47839367"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://scenes/copr-luke/copr-luke-tags_0.jpg"
-dest_files=["res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.ctex"]
+dest_files=["res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.s3tc.ctex", "res://.godot/imported/copr-luke-tags_0.jpg-054230a68dc3cc392578d5538f0496c9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
@@ -34,4 +36,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
