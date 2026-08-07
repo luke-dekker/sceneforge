@@ -203,8 +203,10 @@ main{display:flex; flex:1; min-height:0}
 #maphead{display:flex; align-items:center; padding:6px 10px; border-bottom:1px solid var(--line);
   font-size:11px; letter-spacing:.14em; color:var(--dim)}
 #maphead .sp{flex:1}
-#mapbody{position:relative; cursor:default}
-#mapbody img{width:100%; display:block; image-rendering:auto}
+#mapbody{position:relative; cursor:grab; overflow:hidden}
+#mapbody:active{cursor:grabbing}
+#mappan{position:absolute; transform-origin:0 0; width:100%}
+#mappan img{width:100%; display:block; image-rendering:auto}
 .mp{position:absolute; transform:translate(-50%,-50%); cursor:pointer; z-index:2}
 .mp .d{width:10px; height:10px; border-radius:50%; border:2px solid #14161a; background:var(--bad)}
 .mp.n1 .d,.mp.n2 .d{background:var(--warn)}
@@ -239,8 +241,8 @@ main{display:flex; flex:1; min-height:0}
 </div>
 <div id="map">
   <div id="maphead">SITE MAP · N &#8593;<span class="sp"></span><button id="mapClose">&#215;</button></div>
-  <div id="mapbody"><img id="mapimg" src="/ortho.png"></div>
-  <div id="mapnote">click a point to select it · colors match the target list</div>
+  <div id="mapbody"><div id="mappan"><img id="mapimg" src="/ortho.png"></div></div>
+  <div id="mapnote">click point = select · wheel = zoom · drag = pan · dbl-click = reset</div>
 </div>
 <div id="toast"></div>
 <script>
@@ -256,10 +258,16 @@ async function boot(){
   else $('map').classList.add('open');
   render();
 }
+let mS=1,mX=0,mY=0,mDrag=null,mMoved=false;
+function applyMap(){
+  $('mappan').style.transform=`translate(${mX}px,${mY}px) scale(${mS})`;
+  document.querySelectorAll('.mp').forEach(e=>
+    e.style.transform=`translate(-50%,-50%) scale(${1/mS})`);
+}
 function renderMap(){
   if(!M.map_bounds)return;
   document.querySelectorAll('.mp').forEach(e=>e.remove());
-  const [e0,n0,e1,n1]=M.map_bounds, body=$('mapbody');
+  const [e0,n0,e1,n1]=M.map_bounds, pan=$('mappan');
   for(const p of M.points){
     const c=count(p.name);
     const d=document.createElement('div');
@@ -267,10 +275,31 @@ function renderMap(){
     d.style.left=((p.e-e0)/(e1-e0)*100)+'%';
     d.style.top=((n1-p.n)/(n1-n0)*100)+'%';
     d.innerHTML=`<div class="d"></div><span class="t">${p.name.replace('cop-','')}</span>`;
-    d.onclick=()=>{sel=p.name; render();};
-    body.appendChild(d);
+    d.onclick=()=>{if(mMoved)return; sel=p.name; render();};
+    pan.appendChild(d);
   }
+  applyMap();
 }
+$('mapimg').onload=()=>{
+  $('mapbody').style.height=(360*$('mapimg').naturalHeight/$('mapimg').naturalWidth)+'px';
+};
+$('mapbody').addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.3:0.77, r=$('mapbody').getBoundingClientRect();
+  const px=e.clientX-r.left, py=e.clientY-r.top;
+  mX=px-(px-mX)*f; mY=py-(py-mY)*f; mS=Math.max(1,mS*f);
+  if(mS===1){mX=0;mY=0;}
+  applyMap();
+},{passive:false});
+$('mapbody').addEventListener('mousedown',e=>{mDrag={x:e.clientX,y:e.clientY}; mMoved=false;});
+window.addEventListener('mousemove',e=>{
+  if(!mDrag)return;
+  const dx=e.clientX-mDrag.x, dy=e.clientY-mDrag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)mMoved=true;
+  mX+=dx; mY+=dy; mDrag={x:e.clientX,y:e.clientY}; applyMap();
+});
+window.addEventListener('mouseup',()=>{setTimeout(()=>mMoved=false,0); mDrag=null;});
+$('mapbody').addEventListener('dblclick',()=>{mS=1;mX=0;mY=0;applyMap();});
 function render(){
   const rail=$('rail'); rail.innerHTML='';
   let done=0;
@@ -359,7 +388,7 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mouseup',async e=>{
   const wasDrag=drag&&moved; drag=null;
   if(wasDrag||!$('viewer').classList.contains('open'))return;
-  if(e.target.closest('.mk')||e.target.closest('#vhead'))return;
+  if(e.target.closest('.mk')||e.target.closest('#vhead')||e.target.closest('#map'))return;
   if(!sel){toast('select a control point first','#e8b93c');return;}
   const r=$('vwrap').getBoundingClientRect();
   const x=(e.clientX-r.left-tx)/scale, y=(e.clientY-r.top-ty)/scale;
