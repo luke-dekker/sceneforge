@@ -37,6 +37,18 @@ def load_control(path: Path):
     return lines[0], points
 
 
+def load_ortho(path: Path):
+    """Read a GeoTIFF orthophoto: PNG bytes + UTM bounds from the geo tags."""
+    im = Image.open(path)
+    sx, sy, _ = im.tag_v2[33550]           # ModelPixelScale
+    _, _, _, e0, n_top, _ = im.tag_v2[33922][:6]   # ModelTiepoint
+    w, h = im.size
+    im.thumbnail((1600, 1600))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return buf.getvalue(), [e0, n_top - h * sy, e0 + w * sx, n_top]
+
+
 def load_tags():
     if CFG["tags_path"].exists():
         return json.loads(CFG["tags_path"].read_text())
@@ -81,7 +93,10 @@ class Handler(BaseHTTPRequestHandler):
             with STATE_LOCK:
                 self._send(json.dumps({"proj": CFG["proj"], "points": CFG["points"],
                                        "images": CFG["images"], "tags": load_tags(),
-                                       "control_file": CFG["control_name"]}))
+                                       "control_file": CFG["control_name"],
+                                       "map_bounds": CFG.get("map_bounds")}))
+        elif path == "/ortho.png" and CFG.get("ortho_png"):
+            self._send(CFG["ortho_png"], "image/png")
         elif path == "/api/export":
             with STATE_LOCK:
                 text = export_text(load_tags())
@@ -182,10 +197,28 @@ main{display:flex; flex:1; min-height:0}
 .mk.other .lbl{color:var(--ink)}
 #toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--panel);
   border:1px solid var(--fix); color:var(--fix); padding:8px 18px; display:none; font-size:12px}
+#map{position:fixed; right:14px; top:56px; width:360px; background:var(--panel);
+  border:1px solid var(--line); z-index:50; display:none; box-shadow:0 8px 30px rgba(0,0,0,.55)}
+#map.open{display:block}
+#maphead{display:flex; align-items:center; padding:6px 10px; border-bottom:1px solid var(--line);
+  font-size:11px; letter-spacing:.14em; color:var(--dim)}
+#maphead .sp{flex:1}
+#mapbody{position:relative; cursor:default}
+#mapbody img{width:100%; display:block; image-rendering:auto}
+.mp{position:absolute; transform:translate(-50%,-50%); cursor:pointer; z-index:2}
+.mp .d{width:10px; height:10px; border-radius:50%; border:2px solid #14161a; background:var(--bad)}
+.mp.n1 .d,.mp.n2 .d{background:var(--warn)}
+.mp.ok .d{background:var(--fix)}
+.mp.sel .d{outline:2px solid var(--flag); outline-offset:2px}
+.mp .t{position:absolute; left:12px; top:-6px; font-size:10px; color:#fff;
+  text-shadow:0 0 4px #000,0 0 4px #000; white-space:nowrap}
+.mp.sel .t{color:var(--flag)}
+#mapnote{padding:5px 10px; font-size:10px; color:var(--dim); border-top:1px solid var(--line)}
 </style></head><body>
 <header>
   <h1>SCENEFORGE <b>/ GCP TAGGER</b></h1>
   <span id="proj"></span>
+  <button id="mapBtn">MAP</button>
   <button id="exportBtn">EXPORT gcp_list</button>
 </header>
 <main>
@@ -204,6 +237,11 @@ main{display:flex; flex:1; min-height:0}
   </div>
   <div id="vwrap"><div id="vpan"><img id="vimg"></div></div>
 </div>
+<div id="map">
+  <div id="maphead">SITE MAP · N &#8593;<span class="sp"></span><button id="mapClose">&#215;</button></div>
+  <div id="mapbody"><img id="mapimg" src="/ortho.png"></div>
+  <div id="mapnote">click a point to select it · colors match the target list</div>
+</div>
 <div id="toast"></div>
 <script>
 let M=null, sel=null, cur=-1, scale=1, tx=0, ty=0, drag=null, moved=false;
@@ -214,7 +252,24 @@ async function boot(){
   M=await (await fetch('/api/meta')).json();
   $('proj').textContent=M.control_file+'  ·  '+M.proj;
   sel=M.points[0]?.name??null;
+  if(!M.map_bounds)$('mapBtn').style.display='none';
+  else $('map').classList.add('open');
   render();
+}
+function renderMap(){
+  if(!M.map_bounds)return;
+  document.querySelectorAll('.mp').forEach(e=>e.remove());
+  const [e0,n0,e1,n1]=M.map_bounds, body=$('mapbody');
+  for(const p of M.points){
+    const c=count(p.name);
+    const d=document.createElement('div');
+    d.className='mp '+(c>=3?'ok':c>0?'n'+c:'')+(p.name===sel?' sel':'');
+    d.style.left=((p.e-e0)/(e1-e0)*100)+'%';
+    d.style.top=((n1-p.n)/(n1-n0)*100)+'%';
+    d.innerHTML=`<div class="d"></div><span class="t">${p.name.replace('cop-','')}</span>`;
+    d.onclick=()=>{sel=p.name; render();};
+    body.appendChild(d);
+  }
 }
 function render(){
   const rail=$('rail'); rail.innerHTML='';
@@ -241,6 +296,7 @@ function render(){
     d.onclick=()=>openViewer(i);
     g.appendChild(d);
   });
+  renderMap();
 }
 function openViewer(i){
   cur=i; $('viewer').classList.add('open');
@@ -328,6 +384,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')nav(-1);
   if(e.key==='ArrowRight')nav(1);
 });
+$('mapBtn').onclick=()=>$('map').classList.toggle('open');
+$('mapClose').onclick=()=>$('map').classList.remove('open');
 $('exportBtn').onclick=async()=>{
   const r=await (await fetch('/api/export')).json();
   toast(`wrote ${r.written} (${r.lines} lines)`);
@@ -346,9 +404,16 @@ def main():
     ap.add_argument("control_file", type=Path)
     ap.add_argument("images_dir", type=Path)
     ap.add_argument("--port", type=int, default=8100)
+    ap.add_argument("--ortho", type=Path, default=None,
+                    help="georeferenced orthophoto GeoTIFF to use as the map basemap")
     args = ap.parse_args()
 
     proj, points = load_control(args.control_file)
+    if args.ortho and HAVE_PIL:
+        png, bounds = load_ortho(args.ortho)
+        CFG.update({"ortho_png": png, "map_bounds": bounds})
+        print(f"map basemap: {args.ortho.name} bounds E {bounds[0]:.1f}-{bounds[2]:.1f} "
+              f"N {bounds[1]:.1f}-{bounds[3]:.1f}")
     CFG.update({
         "proj": proj, "points": points,
         "control_name": args.control_file.name,
