@@ -1,0 +1,45 @@
+{
+  "name": "copr-luke-tags",
+  "source": {
+    "pipeline": "ODM",
+    "asset": "odm_textured_model_geo_decoded.glb"
+  },
+  "crs": {
+    "proj4": "+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs +type=crs",
+    "utm_offset": [
+      235263.0,
+      3811209.0
+    ],
+    "z_offset": -1.751
+  },
+  "origin_geopose": {
+    "position": {
+      "lat": 34.408462971415446,
+      "lon": -119.88015665979226,
+      "h": -1.751
+    },
+    "angles": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
+  },
+  "engine_frame": {
+    "convention": "gltf-Y-up",
+    "x": "east",
+    "y": "up",
+    "z": "south",
+    "units": "meters"
+  },
+  "wgs84_jacobian": {
+    "dlat_de": 2.5606711062664544e-07,
+    "dlat_dn": 9.006891396268202e-06,
+    "dlon_de": 1.0867194490060683e-05,
+    "dlon_dn": -3.0895640179551265e-07
+  },
+  "terrain_elevation_range_m": [
+    -1.75,
+    8.33
+  ],
+  "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset"
+}
