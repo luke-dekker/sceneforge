@@ -24,16 +24,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().reload_current_scene()
 
 
+func _scenes_root() -> String:
+	# In the editor, scenes live in the project; in an exported build they sit
+	# in a plain folder next to the executable so anyone can drop new ones in.
+	if OS.has_feature("editor"):
+		return "res://scenes"
+	return OS.get_executable_path().get_base_dir() + "/scenes"
+
+
 func _scene_dir() -> String:
-	return "res://scenes/" + scene_dirs[scene_idx]
+	return _scenes_root() + "/" + scene_dirs[scene_idx]
 
 
 func _discover_scenes() -> void:
-	for d in DirAccess.get_directories_at("res://scenes"):
-		if FileAccess.file_exists("res://scenes/%s/scene.json" % d):
-			scene_dirs.append(d)
+	var root := _scenes_root()
+	if DirAccess.dir_exists_absolute(root):
+		for d in DirAccess.get_directories_at(root):
+			if FileAccess.file_exists("%s/%s/scene.json" % [root, d]):
+				scene_dirs.append(d)
 	if scene_dirs.is_empty():
-		push_error("no scenes with scene.json under res://scenes")
+		push_error("no scenes with scene.json under " + root)
 
 
 func _load_georef() -> void:
@@ -50,8 +60,17 @@ func _load_scene() -> void:
 		if f.ends_with(".glb"):
 			glb = _scene_dir() + "/" + f
 			break
-	var packed: PackedScene = load(glb)
-	var scene := packed.instantiate()
+	var scene: Node
+	if glb.begins_with("res://"):
+		scene = (load(glb) as PackedScene).instantiate()
+	else:
+		# Exported build: parse the glb at runtime from the external folder.
+		var doc := GLTFDocument.new()
+		var state := GLTFState.new()
+		if doc.append_from_file(glb, state) != OK:
+			push_error("failed to load " + glb)
+			return
+		scene = doc.generate_scene(state)
 	add_child(scene)
 	for mi in scene.find_children("*", "MeshInstance3D", true, false):
 		mi.create_trimesh_collision()
