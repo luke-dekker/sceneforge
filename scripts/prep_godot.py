@@ -37,42 +37,73 @@ def read_coords(run_dir: Path):
     return proj, east_off, north_off
 
 
-def vertical_bounds(gltf: GLTF2):
+def vertical_bounds(gltf: GLTF2, axis: int = 2):
     zs = []
     for mesh in gltf.meshes:
         for prim in mesh.primitives:
             acc = gltf.accessors[prim.attributes.POSITION]
             if acc.min and acc.max:
-                zs.extend([acc.min[2], acc.max[2]])
+                zs.extend([acc.min[axis], acc.max[axis]])
     return min(zs), max(zs)
+
+
+def mesh_to_glb(mesh_path: Path) -> Path:
+    """Accept a glb directly, or convert OBJ/PLY via trimesh (experimental —
+    developed against ODM output; other tools' texture setups may need work)."""
+    if mesh_path.suffix.lower() in (".glb", ".gltf"):
+        return ensure_uncompressed(mesh_path)
+    import trimesh
+    converted = mesh_path.with_suffix(".converted.glb")
+    trimesh.load(str(mesh_path)).export(str(converted))
+    return converted
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("run_dir", type=Path)
+    ap.add_argument("run_dir", type=Path, nargs="?", default=None,
+                    help="ODM run folder (omit when using --mesh)")
+    ap.add_argument("--mesh", type=Path, help="generic mode: any georeferenced mesh (glb/gltf/obj/ply)")
+    ap.add_argument("--proj", type=str, help="generic mode: proj4 string of the mesh CRS")
+    ap.add_argument("--offset", type=float, nargs=2, metavar=("E", "N"),
+                    help="generic mode: offset already subtracted from mesh coords (use 0 0 "
+                         "if the mesh carries full CRS coordinates)")
+    ap.add_argument("--name", type=str, default=None, help="scene name override")
+    ap.add_argument("--y-up", action="store_true",
+                    help="generic mode: mesh is already Y-up; skip the Z-up rotation")
     ap.add_argument("-o", "--out", type=Path, default=None,
                     help="output dir (default: <run_dir>/godot)")
     args = ap.parse_args()
-    out = args.out or args.run_dir / "godot"
-    out.mkdir(parents=True, exist_ok=True)
-    name = args.run_dir.name
 
-    proj, east_off, north_off = read_coords(args.run_dir)
-    glb_path = ensure_uncompressed(args.run_dir / "odm_texturing" / "odm_textured_model_geo.glb")
+    if args.mesh:
+        if not (args.proj and args.offset is not None):
+            ap.error("--mesh requires --proj and --offset")
+        name = args.name or args.mesh.stem
+        out = args.out or args.mesh.parent / "godot"
+        proj, east_off, north_off = args.proj, args.offset[0], args.offset[1]
+        glb_path = mesh_to_glb(args.mesh)
+        source_pipeline = "generic"
+    elif args.run_dir:
+        name = args.name or args.run_dir.name
+        out = args.out or args.run_dir / "godot"
+        proj, east_off, north_off = read_coords(args.run_dir)
+        glb_path = ensure_uncompressed(args.run_dir / "odm_texturing" / "odm_textured_model_geo.glb")
+        source_pipeline = "ODM"
+    else:
+        ap.error("give an ODM run_dir or --mesh/--proj/--offset")
+    out.mkdir(parents=True, exist_ok=True)
     gltf = GLTF2().load_binary(str(glb_path))
 
-    z_min, z_max = vertical_bounds(gltf)
+    z_min, z_max = vertical_bounds(gltf, axis=1 if args.y_up else 2)
     z0 = round(z_min, 3)
 
     # Root node: p' = R p + t with R = Rx(-90deg) (east->X, up->Y, north->-Z),
     # t = (0, -z0, 0) so the lowest ground point lands at Y=0.
-    # glTF matrices are column-major.
+    # glTF matrices are column-major. With --y-up, skip the rotation.
+    matrix = ([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -z0, 0, 1] if args.y_up else
+              [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, -z0, 0, 1])
     root = Node(
         name=f"{name}_enu_to_engine",
-        matrix=[1, 0, 0, 0,
-                0, 0, -1, 0,
-                0, 1, 0, 0,
-                0, -z0, 0, 1],
+        matrix=matrix,
         children=list(gltf.scenes[gltf.scene or 0].nodes),
     )
     gltf.nodes.append(root)
@@ -92,7 +123,7 @@ def main():
 
     scene = {
         "name": name,
-        "source": {"pipeline": "ODM", "asset": str(glb_path.name)},
+        "source": {"pipeline": source_pipeline, "asset": str(glb_path.name)},
         "crs": {"proj4": proj, "utm_offset": [east_off, north_off], "z_offset": z0},
         "origin_geopose": {  # GeoPose-shaped anchor of the engine origin
             "position": {"lat": lat, "lon": lon, "h": z0},

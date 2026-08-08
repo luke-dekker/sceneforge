@@ -29,13 +29,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		rotation.y -= event.relative.x * MOUSE_SENS
 		cam.rotation.x = clampf(cam.rotation.x - event.relative.y * MOUSE_SENS, -1.5, 1.5)
 	elif event is InputEventKey and event.pressed:
-		match event.physical_keycode:
-			KEY_ESCAPE:
-				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if \
-					Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
-			KEY_F:
-				flying = not flying
-	elif event is InputEventMouseButton and event.pressed:
+		if event.physical_keycode == KEY_F:
+			flying = not flying
+	elif event is InputEventMouseButton and event.pressed and not get_tree().paused:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
