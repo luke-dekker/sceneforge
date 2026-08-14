@@ -67,6 +67,9 @@ def main():
     ap.add_argument("--offset", type=float, nargs=2, metavar=("E", "N"),
                     help="generic mode: offset already subtracted from mesh coords (use 0 0 "
                          "if the mesh carries full CRS coordinates)")
+    ap.add_argument("--sidecar", type=Path, default=None,
+                    help="generic mode: georef sidecar json with proj4 + utm_offset "
+                         "(default: <mesh>.json if it exists)")
     ap.add_argument("--name", type=str, default=None, help="scene name override")
     ap.add_argument("--y-up", action="store_true",
                     help="generic mode: mesh is already Y-up; skip the Z-up rotation")
@@ -75,11 +78,17 @@ def main():
     args = ap.parse_args()
 
     if args.mesh:
-        if not (args.proj and args.offset is not None):
-            ap.error("--mesh requires --proj and --offset")
+        proj, offset = args.proj, args.offset
+        sidecar = args.sidecar or args.mesh.with_suffix(".json")
+        if (proj is None or offset is None) and sidecar.exists():
+            sc = json.loads(sidecar.read_text())
+            proj = proj or sc["proj4"]
+            offset = offset if offset is not None else sc["utm_offset"]
+        if not (proj and offset is not None):
+            ap.error("--mesh requires --proj and --offset, or a georef sidecar json")
         name = args.name or args.mesh.stem
         out = args.out or args.mesh.parent / "godot"
-        proj, east_off, north_off = args.proj, args.offset[0], args.offset[1]
+        east_off, north_off = offset[0], offset[1]
         glb_path = mesh_to_glb(args.mesh)
         source_pipeline = "generic"
     elif args.run_dir:

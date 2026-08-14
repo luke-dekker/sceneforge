@@ -14,6 +14,7 @@ output feeds prep_godot.py generic mode:
       --proj "+proj=utm +zone=10 +datum=WGS84 +units=m" --offset <E0> <N0> --name farm
 """
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +28,7 @@ def read_grid(path, max_dim):
         scale = max_dim / max(src.width, src.height)
         shape = (max(1, round(src.height * scale)), max(1, round(src.width * scale)))
         data = src.read(out_shape=(src.count,) + shape)
-        return data, src.bounds
+        return data, src.bounds, src.crs
 
 
 def clean_heights(z, mask=None):
@@ -57,12 +58,12 @@ def main():
     ap.add_argument("--mask", help="validity mask raster (e.g. MicMac Masq_*.tif), same grid as the DSM")
     args = ap.parse_args()
 
-    z, bounds = read_grid(args.dsm, args.grid)
+    z, bounds, crs = read_grid(args.dsm, args.grid)
     mask = read_grid(args.mask, args.grid)[0][0] if args.mask else None
     z = clean_heights(z[0].astype(np.float64), mask)
     h, w = z.shape
 
-    rgb, obounds = read_grid(args.ortho, args.tex)
+    rgb, obounds, _ = read_grid(args.ortho, args.tex)
     tex = Image.fromarray(np.moveaxis(rgb[:3], 0, -1).astype(np.uint8))
 
     # Center the mesh: engines (and the walker's spawn) put the player at the
@@ -95,10 +96,20 @@ def main():
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     mesh.export(out)
+
+    # Georef sidecar: same convention as rtl_to_utm_geotiff's — downstream
+    # tools (prep_godot generic mode) read it instead of taking --proj/--offset.
+    sidecar = out.with_suffix(".json")
+    sidecar.write_text(json.dumps({
+        "proj4": crs.to_proj4() if crs else None,
+        "utm_offset": [e0, n0],
+    }, indent=2))
+
     print(f"{out}: {len(verts):,} verts, {len(faces):,} tris, "
           f"{tex.size[0]}x{tex.size[1]} texture")
     print(f"extent {bounds.right-bounds.left:.0f}m x {bounds.top-bounds.bottom:.0f}m, "
           f"height range {z.min():.1f}..{z.max():.1f}")
+    print(f"wrote {sidecar}")
     print(f"prep_godot offset: --offset {e0:.0f} {n0:.0f}")
 
 
