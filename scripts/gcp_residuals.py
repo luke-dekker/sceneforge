@@ -1,11 +1,14 @@
-"""Checkpoint residuals for an ODM run.
+"""Checkpoint residuals for a photogrammetry solve.
 
 ODM has no native GCP holdout (issue #1302), so we grade runs ourselves:
-run ODM with a constraint-only gcp_list, then triangulate every GCP in the
-full list from its pixel tags using the solved camera poses
-(odm_report/shots.geojson + cameras.json) and compare against the surveyed
-coordinates. Constraining GCPs double as a sanity check on this script's
-projection math — they were in the solve, so their residuals must be small.
+run the solve with a constraint-only gcp_list, then triangulate every GCP in
+the full list from its pixel tags using the solved camera poses and compare
+against the surveyed coordinates. Constraining GCPs double as a sanity check
+on the projection math — they were in the solve, so their residuals must be
+small.
+
+The solve can be an ODM run dir (cameras.json + odm_report/shots.geojson) or
+an AliceVision sfmData json (Meshroom cameras.sfm) — see sfm_io.load_solve.
 
 Usage:
   python scripts/gcp_residuals.py runs/copr-gcp --gcp data/copr/gcp_list.txt \
@@ -18,66 +21,22 @@ from pathlib import Path
 
 import numpy as np
 
-
-def rodrigues(rvec):
-    theta = np.linalg.norm(rvec)
-    if theta < 1e-12:
-        return np.eye(3)
-    k = rvec / theta
-    K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
-    return np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * K @ K
-
-
-def undistort_brown(xd, yd, cam, iters=20):
-    """Invert the Brown model by fixed-point iteration (opensfm convention)."""
-    k1, k2, k3 = cam.get("k1", 0), cam.get("k2", 0), cam.get("k3", 0)
-    p1, p2 = cam.get("p1", 0), cam.get("p2", 0)
-    x, y = xd, yd
-    for _ in range(iters):
-        r2 = x * x + y * y
-        radial = 1 + r2 * (k1 + r2 * (k2 + r2 * k3))
-        dx = 2 * p1 * x * y + p2 * (r2 + 2 * x * x)
-        dy = p1 * (r2 + 2 * y * y) + 2 * p2 * x * y
-        x = (xd - dx) / radial
-        y = (yd - dy) / radial
-    return x, y
-
-
-def pixel_bearing(px, py, cam):
-    """Pixel -> unit ray in camera frame (opensfm normalized coordinates)."""
-    size = max(cam["width"], cam["height"])
-    xn = (px - (cam["width"] - 1) / 2.0) / size
-    yn = (py - (cam["height"] - 1) / 2.0) / size
-    xd = (xn - cam.get("c_x", 0)) / cam["focal_x"]
-    yd = (yn - cam.get("c_y", 0)) / cam.get("focal_y", cam["focal_x"])
-    x, y = undistort_brown(xd, yd, cam)
-    b = np.array([x, y, 1.0])
-    return b / np.linalg.norm(b)
-
-
-def triangulate(origins, dirs):
-    """Least-squares point closest to all rays."""
-    A = np.zeros((3, 3))
-    b = np.zeros(3)
-    for o, d in zip(origins, dirs):
-        P = np.eye(3) - np.outer(d, d)
-        A += P
-        b += P @ o
-    return np.linalg.solve(A, b)
+from sfm_io import load_solve, triangulate
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("run_dir", type=Path)
+    ap.add_argument("solve", type=Path,
+                    help="ODM run dir or AliceVision .sfm/.json")
     ap.add_argument("--gcp", type=Path, required=True, help="full gcp_list.txt (all tags)")
     ap.add_argument("--checkpoints", nargs="*", default=[], help="held-out GCP names")
     ap.add_argument("--max-ray-miss", type=float, default=0.5,
                     help="flag GCPs whose tags disagree by more than this (m) and drop from RMSE")
+    ap.add_argument("-o", "--out", type=Path, default=None,
+                    help="output json (default: <solve dir>/gcp_residuals.json)")
     args = ap.parse_args()
 
-    cameras = json.load(open(args.run_dir / "cameras.json"))
-    shots = {f["properties"]["filename"]: f["properties"]
-             for f in json.load(open(args.run_dir / "odm_report" / "shots.geojson"))["features"]}
+    shots = load_solve(args.solve)
 
     tags = defaultdict(list)   # gcp name -> [(surveyed xyz, image, px, py)]
     for line in args.gcp.read_text().splitlines()[1:]:
@@ -88,10 +47,6 @@ def main():
         image, name = parts[5], (parts[6] if len(parts) > 6 else f"gcp@{parts[0]},{parts[1]}")
         tags[name].append(((gx, gy, gz), image, px, py))
 
-    def cam_for(shot):
-        key = shot["camera"].removeprefix("v2 ")
-        return cameras[key]
-
     rows = []
     for name in sorted(tags):
         surveyed = np.array(tags[name][0][0])
@@ -101,9 +56,8 @@ def main():
             if shot is None:
                 skipped += 1
                 continue
-            R = rodrigues(np.array(shot["rotation"]))  # world -> camera
-            origins.append(np.array(shot["translation"]))
-            dirs.append(R.T @ pixel_bearing(px, py, cam_for(shot)))
+            origins.append(shot.origin)
+            dirs.append(shot.ray(px, py))
         if len(origins) < 2:
             print(f"{name}: <2 usable rays ({skipped} images missing from solve), skipped")
             continue
@@ -134,7 +88,8 @@ def main():
     if bad:
         print(f"excluded for inconsistent tags (ray miss > {args.max_ray_miss} m): {', '.join(bad)}")
 
-    out = args.run_dir / "gcp_residuals.json"
+    out = args.out or (args.solve if args.solve.is_dir() else args.solve.parent) / "gcp_residuals.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=2))
     print(f"wrote {out}")
 
