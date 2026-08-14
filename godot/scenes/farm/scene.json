@@ -1,0 +1,45 @@
+{
+  "name": "farm",
+  "source": {
+    "pipeline": "generic",
+    "asset": "farm.glb"
+  },
+  "crs": {
+    "proj4": "+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs",
+    "utm_offset": [
+      501109.0,
+      5212939.0
+    ],
+    "z_offset": 0.576
+  },
+  "origin_geopose": {
+    "position": {
+      "lat": 47.06996303765365,
+      "lon": -122.9853937262422,
+      "h": 0.576
+    },
+    "angles": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
+  },
+  "engine_frame": {
+    "convention": "gltf-Y-up",
+    "x": "east",
+    "y": "up",
+    "z": "south",
+    "units": "meters"
+  },
+  "wgs84_jacobian": {
+    "dlat_de": -1.6803909375084913e-09,
+    "dlat_dn": 8.99865320036497e-06,
+    "dlon_de": 1.3170670214890379e-05,
+    "dlon_dn": 2.458364178892225e-09
+  },
+  "terrain_elevation_range_m": [
+    0.58,
+    50.27
+  ],
+  "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset"
+}
