@@ -56,6 +56,13 @@ points. That separation is the whole trick.
 ## Phases
 
 ### Phase 0 — software only (no drone needed, start anytime)
+
+> **Status 2026-08-16: DONE end-to-end.** Demo mission over the farm twin →
+> `mission_export` → ArduPilot SITL (4.7, Windows binary in
+> `tools\ardupilot-sitl`) flew it with **0.4 m mean / 0.9 m max** cross-track
+> error vs the plan. Flown track written back to trajectory json for replay.
+> Remaining niceties: GUI-friendly rig builder (curve + Follow Path), flown-vs-
+> planned visual overlay in Blender/Godot.
 1. **Blender mission rig**: helper that adds a flight-path curve + speed
    keyframes (Follow Path) and a separate keyframed gimbal-target empty
    (Track To). The flythrough camera in `sceneforge_blend.py` is the seed.
