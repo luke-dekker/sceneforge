@@ -132,7 +132,7 @@ def main():
 
     scene = {
         "name": name,
-        "source": {"pipeline": source_pipeline, "asset": str(glb_path.name)},
+        "source": {"pipeline": source_pipeline, "asset": out_glb.name},
         "crs": {"proj4": proj, "utm_offset": [east_off, north_off], "z_offset": z0},
         "origin_geopose": {  # GeoPose-shaped anchor of the engine origin
             "position": {"lat": lat, "lon": lon, "h": z0},
