@@ -9,7 +9,6 @@ scripts — logic stays GUI-free per the plugin/GUI separation rule:
 - **GcpConvert** — wraps `gcp_to_micmac.py` (ODM GCP list → MicMac XML + holdout)
 - **UtmExport** — wraps `rtl_to_utm_geotiff.py` (RTL products → UTM GeoTIFF)
 - **HeightfieldScene** — wraps `heightfield_glb.py` + `prep_godot.py` (DSM+ortho → walkable GLB)
-Distribution via meshroomHub pluginRegistry = the classmate-share story.
 2023.3 stays quarantined as a MicMacRoom-compat box until COCORICO ports it.
 
 ## Capture doctrine: add low-oblique orbits (2026-08-13)

@@ -17,6 +17,8 @@ from any other frontend.
 | `GodotScenePrep` | `prep_godot.py` | georeferenced mesh → Godot scene folder (Y-up glb + scene.json GeoPose) |
 | `RtlToUtmGeotiff` | `rtl_to_utm_geotiff.py` | MicMac RTL raster → UTM GeoTIFF + sidecar |
 | `GcpConvertMicMac` | `gcp_to_micmac.py` | ODM gcp_list.txt → MicMac GCP XML + checkpoint holdout |
+| `MeshConvert` | `mesh_convert.py` | Meshroom textured OBJ → engine-ready glb (EXR→sRGB JPG, weld+simplify) |
+| `BlenderScene` | `blender_scene.py` | sceneforge scene → .blend (real scale, georef props, accurate sun) + optional orbit flythrough mp4 |
 
 Solve inputs (`AccuracyReport`, `GeorefSolve`) accept an ODM run dir or an
 AliceVision `cameras.sfm` (see `scripts/sfm_io.py`; the AliceVision reader is
@@ -37,6 +39,17 @@ $env:MESHROOM_PLUGINS_PATH = "C:\Users\lucas\sceneforge\meshroom-plugin\scenefor
 ```
 
 `tools\photogrammetry\meshroom-2025.ps1` sets this and launches the GUI.
+
+## Pipeline template
+
+`pipelines/sceneforgePhotogrammetry.mg` = stock photogrammetry chain +
+`MeshConvert → GodotScenePrep → BlenderScene`: images in, Godot scene folder +
+ready-to-open .blend (and optional flythrough mp4) out. The launcher exports
+`MESHROOM_PIPELINE_TEMPLATES_PATH` so it appears in the GUI's pipeline list;
+headless: `meshroom_batch -i <images> -p pipelines/sceneforgePhotogrammetry.mg`.
+⚠ The template ships a **placeholder georef** (UTM zone 10, offset 0,0 = local
+frame); set the real proj/offset on `GodotScenePrep`, or wire a `GeorefSolve`
+sidecar, for true geolocation.
 
 ## Gotchas
 
