@@ -76,6 +76,20 @@ def build_demo_rig(seconds, fps):
     for o in (aircraft, gimbal):
         scn.collection.objects.link(o)
 
+    # Preview camera: rides the aircraft, looks where the gimbal points.
+    # This is exactly what the real gimbal camera will see.
+    cam_data = bpy.data.cameras.new("shot_cam")
+    cam_data.lens = 24
+    cam_data.clip_end = 5000
+    shot_cam = bpy.data.objects.new("shot_cam", cam_data)
+    scn.collection.objects.link(shot_cam)
+    shot_cam.parent = aircraft
+    track = shot_cam.constraints.new(type="TRACK_TO")
+    track.target = gimbal
+    track.track_axis = "TRACK_NEGATIVE_Z"
+    track.up_axis = "UP_Y"
+    scn.camera = shot_cam
+
     for f in range(1, frames + 1, 4):
         t = (f - 1) / (frames - 1)
         # S-curve across the long axis, altitude 40 -> 22 -> 45 m
