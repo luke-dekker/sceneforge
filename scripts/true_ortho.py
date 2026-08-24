@@ -43,7 +43,10 @@ def texture_sampler(mesh):
             th, tw = tex.shape[:2]
 
             def sample(u, v):
-                # trimesh UV origin is bottom-left
+                # trimesh UV origin is bottom-left; wrap so Meshroom's UDIM
+                # tiles (u offset by tile index, one texture per material) sample
+                # their own atlas instead of clamping to the edge pixel
+                u, v = u - np.floor(u), v - np.floor(v)
                 col = np.clip((u * (tw - 1)).astype(int), 0, tw - 1)
                 row = np.clip(((1.0 - v) * (th - 1)).astype(int), 0, th - 1)
                 return tex[row, col]
