@@ -187,6 +187,47 @@ def _alicevision_bearing(intr):
     return bearing
 
 
+def _dms(s, ref):
+    """'47, 4, 9.702' + 'N' -> signed decimal degrees (also accepts a plain float)."""
+    parts = [float(x) for x in str(s).replace(",", " ").split()]
+    val = parts[0] + (parts[1] if len(parts) > 1 else 0) / 60 + (parts[2] if len(parts) > 2 else 0) / 3600
+    return -val if ref in ("S", "W") else val
+
+
+def load_view_gps(source):
+    """Return {image filename: {lat, lon, alt, rtk}} for every view carrying GPS.
+
+    AliceVision keeps the EXIF/XMP block per view (cameraInit.sfm / sfm.json);
+    ODM exposes images.json. `rtk` is DJI's RtkFlag (50 = fixed) or None for
+    cameras without RTK. Altitude is whatever the camera wrote (DJI RTK models:
+    WGS84 ellipsoid); AltitudeRef 1 (below sea level) is honoured by negating.
+    """
+    p = Path(source)
+    out = {}
+    if p.is_dir():
+        for im in json.load(open(p / "images.json")):
+            if im.get("latitude") is None:
+                continue
+            out[im["filename"]] = {"lat": float(im["latitude"]), "lon": float(im["longitude"]),
+                                   "alt": float(im.get("altitude") or 0.0), "rtk": None}
+        return out
+    for v in json.load(open(p))["views"]:
+        md = v.get("metadata", {})
+        if "GPS:Latitude" not in md or "GPS:Longitude" not in md:
+            continue
+        alt = float(md.get("GPS:Altitude", 0) or 0)
+        if str(md.get("GPS:AltitudeRef", "0")) == "1":
+            alt = -alt
+        rtk = md.get("drone-dji:RtkFlag")
+        out[Path(v["path"]).name] = {
+            "lat": _dms(md["GPS:Latitude"], md.get("GPS:LatitudeRef", "N")),
+            "lon": _dms(md["GPS:Longitude"], md.get("GPS:LongitudeRef", "E")),
+            "alt": alt,
+            "rtk": int(float(rtk)) if rtk not in (None, "") else None,
+        }
+    return out
+
+
 def _load_alicevision(sfm_path):
     data = json.load(open(sfm_path))
     intrinsics = {i["intrinsicId"]: _alicevision_bearing(i)
