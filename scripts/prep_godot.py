@@ -37,14 +37,21 @@ def read_coords(run_dir: Path):
     return proj, east_off, north_off
 
 
-def vertical_bounds(gltf: GLTF2, axis: int = 2):
-    zs = []
+def bounds(gltf: GLTF2):
+    """Per-axis (min, max) over every primitive's POSITION accessor."""
+    lo, hi = [], []
     for mesh in gltf.meshes:
         for prim in mesh.primitives:
             acc = gltf.accessors[prim.attributes.POSITION]
             if acc.min and acc.max:
-                zs.extend([acc.min[axis], acc.max[axis]])
-    return min(zs), max(zs)
+                lo.append(acc.min)
+                hi.append(acc.max)
+    lo, hi = list(zip(*lo)), list(zip(*hi))
+    return [(min(a), max(b)) for a, b in zip(lo, hi)]
+
+
+def vertical_bounds(gltf: GLTF2, axis: int = 2):
+    return bounds(gltf)[axis]
 
 
 def mesh_to_glb(mesh_path: Path) -> Path:
@@ -73,6 +80,8 @@ def main():
     ap.add_argument("--name", type=str, default=None, help="scene name override")
     ap.add_argument("--y-up", action="store_true",
                     help="generic mode: mesh is already Y-up; skip the Z-up rotation")
+    ap.add_argument("--no-center", action="store_true",
+                    help="keep the mesh's own origin instead of recentring on its footprint")
     ap.add_argument("-o", "--out", type=Path, default=None,
                     help="output dir (default: <run_dir>/godot)")
     args = ap.parse_args()
@@ -102,14 +111,30 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     gltf = GLTF2().load_binary(str(glb_path))
 
-    z_min, z_max = vertical_bounds(gltf, axis=1 if args.y_up else 2)
+    bb = bounds(gltf)
+    z_min, z_max = bb[1] if args.y_up else bb[2]
     z0 = round(z_min, 3)
 
+    # Horizontal recentre: the walker spawns at engine (0, *, 0), so put the
+    # origin at the mesh's footprint centre and fold the shift into utm_offset
+    # (ODM offsets are near the centre anyway; georef_solve offsets are a
+    # floored corner, which left the spawn point off the mesh).
+    if args.no_center:
+        cx = cn = 0.0
+    elif args.y_up:                  # mesh frame already X=east, Z=south
+        cx = round((bb[0][0] + bb[0][1]) / 2, 3)
+        cn = -round((bb[2][0] + bb[2][1]) / 2, 3)
+    else:                            # mesh frame X=east, Y=north, Z=up
+        cx = round((bb[0][0] + bb[0][1]) / 2, 3)
+        cn = round((bb[1][0] + bb[1][1]) / 2, 3)
+    east_off, north_off = east_off + cx, north_off + cn
+
     # Root node: p' = R p + t with R = Rx(-90deg) (east->X, up->Y, north->-Z),
-    # t = (0, -z0, 0) so the lowest ground point lands at Y=0.
-    # glTF matrices are column-major. With --y-up, skip the rotation.
-    matrix = ([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -z0, 0, 1] if args.y_up else
-              [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, -z0, 0, 1])
+    # t = (-cx, -z0, +cn) so the footprint centre lands at X=Z=0 and the
+    # lowest ground point at Y=0. glTF matrices are column-major. With
+    # --y-up, skip the rotation (engine Z = -north, so t_z = +cn).
+    matrix = ([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -cx, -z0, cn, 1] if args.y_up else
+              [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, -cx, -z0, cn, 1])
     root = Node(
         name=f"{name}_enu_to_engine",
         matrix=matrix,

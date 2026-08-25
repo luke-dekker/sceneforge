@@ -21,8 +21,9 @@ from any other frontend.
 | `BlenderScene` | `blender_scene.py` | sceneforge scene → .blend (real scale, georef props, accurate sun) + optional orbit flythrough mp4 |
 
 Solve inputs (`AccuracyReport`, `GeorefSolve`) accept an ODM run dir or an
-AliceVision `cameras.sfm` (see `scripts/sfm_io.py`; the AliceVision reader is
-untested against a native Meshroom solve until we run one — check the
+AliceVision `cameras.sfm` (see `scripts/sfm_io.py`; the AliceVision reader was
+validated 2026-08-24 against native Meshroom farm solves — RTK camera-GPS fit
+3.5 cm RMSE; `GeorefSolve` also accepts `--camera-gps` for GCP-free georef; check the
 constraint residuals on the first real run).
 
 Georeference travels between nodes as a sidecar json (`{"proj4": ..., "utm_offset": [E, N]}`)
