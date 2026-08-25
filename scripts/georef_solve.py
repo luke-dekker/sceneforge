@@ -202,8 +202,46 @@ def main():
         loaded = trimesh.load(str(mesh_path))
         meshes = loaded.geometry.values() if isinstance(loaded, trimesh.Scene) else [loaded]
         geo_pts = np.array([points[n]["surveyed"] - offset for n in points])
+        # AliceVision writes meshes (OBJ/Alembic) in the graphics convention
+        # (Y-up, Z-back) while cameras.sfm poses are in the computer-vision
+        # frame (Y-down, Z-forward): the mesh is the solve rotated 180 deg
+        # about X. Cameras on one flight plane fit either way, so we let the
+        # mesh decide: try the identity and the three axis-180 rotations and
+        # keep the one whose faces point toward the cameras (a real terrain's
+        # outward normals do; the wrong choice shows hoop houses as troughs
+        # and mirrors north). ODM meshes are already in their solve's frame
+        # and pick the identity.
+        cam_geo = np.array([points[n]["surveyed"] - offset for n in points]).mean(0)
+        raw_vertices = [m.vertices.copy() for m in meshes]
+        total = sum(len(m.faces) for m in meshes)
+
+        def facing_fraction():
+            f = 0.0
+            for m in meshes:
+                v = cam_geo - m.triangles_center
+                f += float(((m.face_normals * v).sum(1) > 0).sum())
+            return f / total
+
+        candidates = {"identity": np.diag([1.0, 1.0, 1.0]), "rot180_x": np.diag([1.0, -1.0, -1.0]),
+                      "rot180_y": np.diag([-1.0, 1.0, -1.0]), "rot180_z": np.diag([-1.0, -1.0, 1.0])}
+        scores = {}
+        for name, P in candidates.items():
+            for m, raw in zip(meshes, raw_vertices):
+                m.vertices = (s * (R @ (raw @ P.T).T)).T + t
+            scores[name] = facing_fraction()
+        # The facing test only sees the vertical flip, so rot180_x and rot180_z
+        # (and identity / rot180_y) tie; break ties by convention — identity
+        # for solve-native meshes (ODM), rot180_x for AliceVision (verified
+        # against the SfM landmark cloud: height-map correlation +0.93 vs +0.12
+        # for rot180_z on the farm).
+        top = max(scores.values())
+        best = next(k for k in ("identity", "rot180_x", "rot180_z", "rot180_y") if scores[k] >= top - 0.01)
+        for m, raw in zip(meshes, raw_vertices):
+            m.vertices = (s * (R @ (raw @ candidates[best].T).T)).T + t
+        print("  mesh frame vs solve: " + ", ".join(f"{k} {v:.0%}" for k, v in scores.items())
+              + f" -> using {best}" + (" (AliceVision graphics-frame convention)" if best == "rot180_x" else ""))
+        transform["mesh_pre_rotation"] = best
         for m in meshes:
-            m.vertices = (s * (R @ m.vertices.T)).T + t
             keep = np.ones(len(m.faces), bool)
             fv = m.vertices[m.faces]                      # (F, 3, 3)
             if args.crop_margin is not None:
@@ -220,14 +258,6 @@ def main():
                 m.remove_unreferenced_vertices()
                 print(f"  cropped {before - len(m.faces):,} of {before:,} faces "
                       f"(margin={args.crop_margin}, z_depth={args.crop_z_depth})")
-            # Meshroom's OBJ comes out wound inside-out (~90% of face normals
-            # point into the ground); engines with backface culling then show
-            # the underside. The ground frame is Z-up, so a terrain mesh whose
-            # normals mostly point down is flipped: invert winding globally.
-            frac_up = float((m.face_normals[:, 2] > 0).mean())
-            if frac_up < 0.5:
-                m.invert()
-                print(f"  inverted winding ({frac_up:.0%} of faces pointed down)")
         out_mesh = out_dir / f"{mesh_path.stem}_geo.glb"
         loaded.export(str(out_mesh))
         sidecar = out_mesh.with_suffix(".json")
