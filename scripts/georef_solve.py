@@ -220,6 +220,14 @@ def main():
                 m.remove_unreferenced_vertices()
                 print(f"  cropped {before - len(m.faces):,} of {before:,} faces "
                       f"(margin={args.crop_margin}, z_depth={args.crop_z_depth})")
+            # Meshroom's OBJ comes out wound inside-out (~90% of face normals
+            # point into the ground); engines with backface culling then show
+            # the underside. The ground frame is Z-up, so a terrain mesh whose
+            # normals mostly point down is flipped: invert winding globally.
+            frac_up = float((m.face_normals[:, 2] > 0).mean())
+            if frac_up < 0.5:
+                m.invert()
+                print(f"  inverted winding ({frac_up:.0%} of faces pointed down)")
         out_mesh = out_dir / f"{mesh_path.stem}_geo.glb"
         loaded.export(str(out_mesh))
         sidecar = out_mesh.with_suffix(".json")
