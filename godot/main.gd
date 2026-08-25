@@ -31,6 +31,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.physical_keycode == KEY_TAB and not get_tree().paused \
 			and scene_dirs.size() > 1:
 		_switch_scene((scene_idx + 1) % scene_dirs.size())
+	elif event.physical_keycode == KEY_F12:
+		_save_screenshot()
+
+
+func _save_screenshot() -> void:
+	# Full-resolution frame grab next to the exe (or the project in the editor),
+	# named by scene + timestamp; for reports, story maps and bug reports.
+	var dir := ("res://" if OS.has_feature("editor")
+			else OS.get_executable_path().get_base_dir()) + "/screenshots"
+	DirAccess.make_dir_recursive_absolute(dir)
+	var stamp := Time.get_datetime_string_from_system(false, true).replace(":", "-").replace(" ", "_")
+	var path := "%s/%s_%s.png" % [dir, scene_names[scene_idx] if scene_names.size() > 0 else "scene", stamp]
+	var img := get_viewport().get_texture().get_image()
+	var err := img.save_png(path)
+	print("screenshot %s -> %s" % [path, "ok" if err == OK else error_string(err)])
 
 
 func _switch_scene(i: int) -> void:
@@ -177,7 +192,7 @@ func _build_hud() -> void:
 		georef.get("name", "scene"),
 		georef.get("crs", {}).get("proj4", "no georef"),
 		origin.get("lat", 0.0), origin.get("lon", 0.0), origin.get("h", 0.0),
-	] + "\nLMB measure  C clear  Tab next scene  Esc menu"
+	] + "\nLMB measure  C clear  Tab next scene  F12 screenshot  Esc menu"
 	label.position = Vector2(8, 8)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_constant_override("outline_size", 4)
