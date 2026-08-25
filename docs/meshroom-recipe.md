@@ -148,5 +148,6 @@ layers for the 2-D pages. Not yet exercised on Pro by us — report back.
 | Meshing process disappears, no error | Windows commit limit; free RAM, or lower `Meshing_1.maxInputPoints` |
 | true ortho renders black tiles | Meshroom UDIM UVs (u offset per tile) — fixed in `true_ortho.py` (wraps) and `export_arcgis_obj.py` (normalizes) |
 | Godot can't load the glb | Draco-compressed input (ODM) — `prep_godot.py` decodes via gltf-transform |
+| Mesh looks inside-out / broken in Godot (fine in Blender and the ortho) | Meshroom's OBJ is wound inside-out (~90 % of face normals into the ground); engines with backface culling show the underside. `georef_solve.py --apply` now inverts winding when most normals point down (ODM/MicMac meshes are already up-facing and untouched) |
 | Walker spawns in the void / falls forever, mesh looks upside down | you were under the mesh: the spawn point (engine 0,0) was outside the footprint. `prep_godot.py` now recentres the origin on the mesh footprint and folds the shift into `utm_offset` (`--no-center` restores the old behaviour); re-run step 3 |
 | Mini 3 checkpoints 30–40 m off vertically | expected; never `--fit-views` on non-RTK altitude |
