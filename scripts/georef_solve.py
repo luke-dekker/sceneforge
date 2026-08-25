@@ -105,6 +105,10 @@ def main():
     ap.add_argument("--crop-z-depth", type=float, default=None, metavar="D",
                     help="on --apply: drop faces more than D metres below the mesh's median Z "
                          "(kills the below-ground skirt Meshroom leaves under flat sites)")
+    ap.add_argument("--crop-max-edge", type=float, default=None, metavar="L",
+                    help="on --apply: drop faces with an edge longer than L metres (the flat "
+                         "'sheet' triangles Meshroom stretches between tree crowns and across "
+                         "the reconstruction fringe; real surface triangles are decimetres)")
     ap.add_argument("-o", "--out", type=Path, default=None,
                     help="output dir (default: <solve dir>/georef)")
     args = ap.parse_args()
@@ -252,12 +256,16 @@ def main():
             if args.crop_z_depth is not None:
                 floor = float(np.median(m.vertices[:, 2])) - args.crop_z_depth
                 keep &= (fv[:, :, 2] >= floor).all(1)
+            if args.crop_max_edge is not None:
+                edge = np.linalg.norm(fv[:, [1, 2, 0], :] - fv, axis=2).max(1)
+                keep &= edge <= args.crop_max_edge
             if not keep.all():
                 before = len(m.faces)
                 m.update_faces(keep)
                 m.remove_unreferenced_vertices()
                 print(f"  cropped {before - len(m.faces):,} of {before:,} faces "
-                      f"(margin={args.crop_margin}, z_depth={args.crop_z_depth})")
+                      f"(margin={args.crop_margin}, z_depth={args.crop_z_depth}, "
+                      f"max_edge={args.crop_max_edge})")
         out_mesh = out_dir / f"{mesh_path.stem}_geo.glb"
         loaded.export(str(out_mesh))
         sidecar = out_mesh.with_suffix(".json")
@@ -266,6 +274,8 @@ def main():
              "vertical_datum": transform["vertical_datum"], "georef_method": method},
             indent=2))
         print(f"wrote {out_mesh} + {sidecar.name}")
+    if args.apply:
+        tf_path.write_text(json.dumps(transform, indent=2))   # now includes mesh_pre_rotation
 
 
 if __name__ == "__main__":

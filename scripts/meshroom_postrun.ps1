@@ -35,9 +35,11 @@
   gltf-transform simplification ratio for the engine glb (default 0.35).
 .PARAMETER Gsd
   Ortho/DSM ground sample distance in metres (default 0.05).
-.PARAMETER CropMargin / CropZDepth
+.PARAMETER CropMargin / CropZDepth / CropMaxEdge
   Drop faces outside the camera/GCP bounding box grown by CropMargin metres (default 40),
-  and faces more than CropZDepth metres below the median Z (default 8). Pass -1 to disable.
+  faces more than CropZDepth metres below the median Z (default 8), and faces with an edge
+  longer than CropMaxEdge metres (default 2 — the flat sheets Meshroom stretches between
+  tree crowns; surface triangles are ~0.3 m). Pass -1 to disable any of them.
 .PARAMETER SkipConvert / SkipGodot / SkipOrtho / SkipArcgis
   Skip steps (georef always runs; it is what everything downstream consumes).
 
@@ -56,6 +58,7 @@ param(
     [double]$Gsd = 0.05,
     [double]$CropMargin = 40,
     [double]$CropZDepth = 8,
+    [double]$CropMaxEdge = 2,
     [switch]$SkipConvert,
     [switch]$SkipGodot,
     [switch]$SkipOrtho,
@@ -91,6 +94,7 @@ if ($Gcp) { $geo += @("--gcp", $Gcp); if ($Checkpoints) { $geo += @("--checkpoin
 else { $geo += "--camera-gps"; if ($FitViews) { $geo += @("--fit-views", $FitViews) } }
 if ($CropMargin -ge 0) { $geo += @("--crop-margin", $CropMargin) }
 if ($CropZDepth -ge 0) { $geo += @("--crop-z-depth", $CropZDepth) }
+if ($CropMaxEdge -ge 0) { $geo += @("--crop-max-edge", $CropMaxEdge) }
 Step "2. georef_solve ($(if ($Gcp) { 'GCPs' } else { 'camera GPS' }))" $geo
 $geoGlb = "$Run\georef\$Name`_geo.glb"
 
