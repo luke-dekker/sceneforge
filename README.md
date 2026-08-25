@@ -47,6 +47,15 @@ The photogrammetry engine runs as a NodeODM container under [Podman](https://pod
 .\scripts\odm-submit.ps1 -ImagesDir <flight-images> -Name x   # submit a flight (optional -GcpFile gcp_list.txt)
 ```
 
+## Running (Meshroom path, no Docker) — see docs/meshroom-recipe.md
+
+```powershell
+.\scripts\meshroom_run.ps1 -Build -Run runs\site -Images data\site\camA,data\site\camB   # graph + intrinsics check
+.\scripts\meshroom_run.ps1 -Compute -Run runs\site                                      # → depth maps (GPU)
+.\scripts\meshroom_run.ps1 -Compute -Run runs\site -ToNode Texturing_1                  # → textured mesh (RAM)
+.\scripts\meshroom_postrun.ps1 -Run runs\site        # RTK/GCP georef, Godot scene, ortho+DSM GeoTIFFs, ArcGIS OBJ
+```
+
 Progress, previews, and downloads (orthophoto, point cloud, textured mesh, quality report) live in the NodeODM web UI at `localhost:3000`. Put flight data under `data/` — it's gitignored.
 
 ## License

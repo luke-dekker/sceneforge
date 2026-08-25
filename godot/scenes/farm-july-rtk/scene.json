@@ -1,0 +1,45 @@
+{
+  "name": "farm-july-rtk",
+  "source": {
+    "pipeline": "generic",
+    "asset": "farm-july-rtk.glb"
+  },
+  "crs": {
+    "proj4": "+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs",
+    "utm_offset": [
+      501026.677,
+      5212872.384
+    ],
+    "z_offset": 11.706
+  },
+  "origin_geopose": {
+    "position": {
+      "lat": 47.06936371647891,
+      "lon": -122.98647812693767,
+      "h": 11.706
+    },
+    "angles": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
+  },
+  "engine_frame": {
+    "convention": "gltf-Y-up",
+    "x": "east",
+    "y": "up",
+    "z": "south",
+    "units": "meters"
+  },
+  "wgs84_jacobian": {
+    "dlat_de": -1.555669371100521e-09,
+    "dlat_dn": 8.99865416670309e-06,
+    "dlon_de": 1.3170522635164161e-05,
+    "dlon_dn": 2.275797328366025e-09
+  },
+  "terrain_elevation_range_m": [
+    11.71,
+    24.94
+  ],
+  "to_utm": "utm_e = x + utm_offset[0]; utm_n = -z + utm_offset[1]; elev = y + z_offset"
+}
