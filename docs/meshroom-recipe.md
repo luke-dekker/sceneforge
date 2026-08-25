@@ -107,11 +107,23 @@ Heights are ellipsoidal when the source is DJI RTK. NAVD88 at Olympia is
 
 ### Cropping
 
-Meshroom reconstructs a fringe far outside the flight and a "skirt" below
-flat ground. `-CropMargin 40 -CropZDepth 8` (defaults) removes faces outside
-the camera bounding box + 40 m and faces more than 8 m below the median Z;
-on the farm that dropped 22 % of faces and every below-ground artifact. Pass
-`-1` to disable either.
+Meshroom reconstructs a fringe far outside the flight, a "skirt" below flat
+ground, and flat "sheet" triangles stretched between tree crowns and across
+the fringe. `-CropMargin 40 -CropZDepth 8 -CropMaxEdge 2` (defaults) remove
+faces outside the camera bounding box + 40 m, faces more than 8 m below the
+median Z, and faces with an edge over 2 m (surface triangles are ~0.3 m; the
+sheets are 0.4 % of faces but dominate the look from inside the scene). Pass
+`-1` to disable any of them.
+
+### Trees
+
+Photogrammetry trees are hollow crusts: tops from the nadir grid, undersides
+from low obliques, holes and floating fragments in between, and textures
+from whichever view scored best — low upward shots paint crowns dark. From
+inside the scene they read as jagged dark hollows. The sheet filter above
+removes the worst of it; the rest is capture (more overlapping oblique tiers
+at ~45°, see doctrine) or a re-texture with a tighter `angleHardThreshold`.
+The ground, buildings and hoop houses are unaffected.
 
 ## 4. Into ArcGIS Online (story map)
 
