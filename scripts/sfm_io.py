@@ -11,8 +11,9 @@ coordinates, so the world-space viewing ray through a pixel is
 
 The ODM path is validated against known runs (copr gradings). The AliceVision
 path follows the 2025.1 sfmData format (string-encoded numerics, pose stored
-as X_cam = R @ (X - center)) but has not yet been checked against a native
-Meshroom solve — verify residuals on the first real run before trusting it.
+as X_cam = R @ (X - center), rotation flattened column-major). The rotation
+order is verified against a synthetic fixture (scene-twin tests); still check
+residuals on the first native Meshroom solve.
 """
 import json
 from pathlib import Path
@@ -236,7 +237,9 @@ def _load_alicevision(sfm_path):
     for p in data.get("poses", []):
         t = p["pose"]["transform"]
         poses[p["poseId"]] = (
-            np.array(_f(t["rotation"])).reshape(3, 3),  # world -> camera
+            # The 9 values are the world->camera matrix in column-major storage
+            # order; a row-major reshape would yield R^T (camera->world).
+            np.array(_f(t["rotation"])).reshape(3, 3, order="F"),
             np.array(_f(t["center"])))
     shots = {}
     for v in data["views"]:
