@@ -17,7 +17,7 @@ surfaces, tree sides, and self-calibration (flat scene + single altitude =
 focal/Z degeneracy — see the copr dome). One 20–45° off-nadir orbit added to
 each flight gives convergent rays → solvable focal, sharper DSM edges, less
 ortho smear at buildings, real side-of-canopy geometry. Cost: ~5 min of
-battery per site. Adopt as standard for all future class flights.
+battery per site. Adopt as standard for all future mapping flights.
 
 ## Canopy correlation failure → melty/plateau trees (2026-08-13)
 Wind moves foliage between exposures; stereo correlation dies on canopy, the
