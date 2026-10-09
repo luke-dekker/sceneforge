@@ -89,11 +89,12 @@ func _build_menu() -> void:
 	resume.custom_minimum_size = Vector2(340, 40)
 	resume.pressed.connect(_toggle_menu)
 	box.add_child(resume)
-	var quit := Button.new()
-	quit.text = "QUIT"
-	quit.custom_minimum_size = Vector2(340, 40)
-	quit.pressed.connect(func(): get_tree().quit())
-	box.add_child(quit)
+	if not OS.has_feature("web"):
+		var quit := Button.new()
+		quit.text = "QUIT"
+		quit.custom_minimum_size = Vector2(340, 40)
+		quit.pressed.connect(func(): get_tree().quit())
+		box.add_child(quit)
 	menu.add_child(box)
 	menu.visible = false
 	add_child(menu)
@@ -102,7 +103,8 @@ func _build_menu() -> void:
 func _scenes_root() -> String:
 	# In the editor, scenes live in the project; in an exported build they sit
 	# in a plain folder next to the executable so anyone can drop new ones in.
-	if OS.has_feature("editor"):
+	if OS.has_feature("editor") or OS.has_feature("web"):
+		# Web builds have no filesystem: the scene ships inside the pck.
 		return "res://scenes"
 	return OS.get_executable_path().get_base_dir() + "/scenes"
 
@@ -135,8 +137,11 @@ func _load_georef() -> void:
 func _load_scene() -> void:
 	var glb := ""
 	for f in DirAccess.get_files_at(_scene_dir()):
-		if f.ends_with(".glb"):
-			glb = _scene_dir() + "/" + f
+		# Exported pcks list imported resources by their metadata file
+		# (foo.glb.import / foo.glb.remap); strip that to get the resource path.
+		var name: String = f.trim_suffix(".import").trim_suffix(".remap")
+		if name.ends_with(".glb"):
+			glb = _scene_dir() + "/" + name
 			break
 	var scene: Node
 	if glb.begins_with("res://"):
@@ -193,6 +198,9 @@ func _build_hud() -> void:
 		georef.get("crs", {}).get("proj4", "no georef"),
 		origin.get("lat", 0.0), origin.get("lon", 0.0), origin.get("h", 0.0),
 	] + "\nLMB measure  C clear  Tab next scene  F12 screenshot  Esc menu"
+	if OS.has_feature("web"):
+		# Browsers only grant pointer lock after a user gesture.
+		label.text += "\n\nCLICK AND DRAG TO LOOK AROUND  (full screen: click once, then mouse-look)"
 	label.position = Vector2(8, 8)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_constant_override("outline_size", 4)

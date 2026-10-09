@@ -25,7 +25,11 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and (Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+			or event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		# Captured = classic mouse-look. Otherwise drag-to-look: browsers refuse
+		# pointer lock inside a cross-origin iframe (e.g. a StoryMaps embed), so
+		# the LMB-held path is what keeps the embedded web build usable.
 		rotation.y -= event.relative.x * MOUSE_SENS
 		cam.rotation.x = clampf(cam.rotation.x - event.relative.y * MOUSE_SENS, -1.5, 1.5)
 	elif event is InputEventKey and event.pressed:

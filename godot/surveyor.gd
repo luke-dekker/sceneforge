@@ -49,11 +49,26 @@ func _style(label: Label) -> void:
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 
 
+var _lmb_down := false
+var _drag_px := 0.0  # motion accumulated while LMB held (relative: works captured or not)
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if get_tree().paused:
 		return
-	if event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT and _hit != null:
+	if event is InputEventMouseMotion and _lmb_down:
+		_drag_px += event.relative.length()
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_lmb_down = true
+			_drag_px = 0.0
+			return
+		# Measure on release, and only if the mouse didn't drag: with pointer
+		# lock refused (iframe embeds) LMB-drag is how the player looks around.
+		_lmb_down = false
+		if _drag_px > 6.0 or _hit == null:
+			return
 		if _point_a == null or _point_b != null:
 			_clear_measure()
 			_point_a = _hit
