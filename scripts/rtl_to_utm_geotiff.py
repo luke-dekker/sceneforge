@@ -18,8 +18,8 @@ Heights (DSM values, --add-origin-alt) become WGS84 ellipsoidal by
 adding the RTL origin altitude - flat-earth approx, fine below ~1km.
 
 Usage:
-  python scripts/rtl_to_utm_geotiff.py runs/farm-micmac/proj/Ortho-MEC-Malt/Orthophotomosaic.tif \
-      --rtl runs/farm-micmac/proj/RTLFromExif.xml -o runs/farm-micmac/farm_ortho_utm10.tif
+  python scripts/rtl_to_utm_geotiff.py runs/farm-july-micmac/proj/Ortho-MEC-Malt/Orthophotomosaic.tif \
+      --rtl runs/farm-july-micmac/proj/RTLFromExif.xml -o runs/farm-july-micmac/farm_ortho_utm10.tif
 """
 import argparse
 import json

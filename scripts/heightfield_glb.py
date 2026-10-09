@@ -8,9 +8,9 @@ dense-mesh route when vertical surfaces matter.
 Vertices are local metres (UTM minus the printed offset), Z-up, so the
 output feeds prep_godot.py generic mode:
 
-  python scripts/heightfield_glb.py runs/farm-micmac/farm_dsm_utm10.tif \
-      runs/farm-micmac/farm_ortho_utm10.tif -o runs/farm-micmac/farm.glb
-  python scripts/prep_godot.py --mesh runs/farm-micmac/farm.glb \
+  python scripts/heightfield_glb.py runs/farm-july-micmac/farm_dsm_utm10.tif \
+      runs/farm-july-micmac/farm_ortho_utm10.tif -o runs/farm-july-micmac/farm.glb
+  python scripts/prep_godot.py --mesh runs/farm-july-micmac/farm.glb \
       --proj "+proj=utm +zone=10 +datum=WGS84 +units=m" --offset <E0> <N0> --name farm
 """
 import argparse
